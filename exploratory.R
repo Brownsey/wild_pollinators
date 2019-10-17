@@ -1,5 +1,6 @@
 library(tidyverse)
 library(ggmap)
+library(leaps)
 
 #Loading the data in from paper ~ downloaded from their resources as a .xlsx, created csv with useful page for quicker reading.
 data <- read.csv("data.csv") %>%
@@ -12,7 +13,8 @@ years <- data %>%
   distinct() %>%
   count(orchard) %>%
   rename(both_years = n) %>%
-  mutate(both_years = (both_years - 1))
+  mutate(both_years = (both_years - 1)) %>%
+  mutate(id = row_number())
 
 
 data <- merge(data, years)
@@ -26,7 +28,7 @@ register_google(key = "AIzaSyB9Hpt0vTWrALpm0iUyJxW6C2IuHZylpC8")
 map <- get_map(location = c(lon = mean(lat_long$lon), lat = mean(lat_long$lat)), zoom = 9,
                       maptype = "satellite", scale = 2)
 
-#Plotting the locations of all the orchards:
+#~~~~~Plotting the locations of all the orchards:
 plotted_map <- ggmap(map) +
   geom_point(data = lat_long, aes(x = long, y = lat, fill = both_years , alpha = 0.8), size = 5, shape = 21) +
   guides(fill = FALSE, alpha = FALSE, size = FALSE) +
@@ -69,3 +71,80 @@ temperature_plot <- temperature_plot +
   stat_smooth(aes(x = temp, y = apisAb), method = "lm", formula = y ~ x + I(x^2), colour = "orange") +
   stat_smooth(aes(x = temp, y = wildAbF), method = "lm", formula = y ~ x + I(x^2), colour = "green") +
   theme_bw()
+
+
+
+#Actually shows like nothing lol
+
+log_data <- data %>%
+  mutate(apisAb = log(apisAb), wildAbF = log(wildAbF))
+
+temperature_plot_log <-  ggplot(data = log_data) +
+  geom_point(aes(x = temp, y = apisAb), colour = "orange") +
+  geom_point(aes(x = temp, y = wildAbF), colour = "green") +
+  ggtitle("Abundance of honey bees and wild bees vs temperature") +
+  xlab("Temperature") + 
+  ylab("Abundance Rating")
+
+#Doesn't show too much
+pui_plot <-  ggplot(data = data) +
+  geom_point(aes(x = eiqB11, y = apisAb), colour = "orange") +
+  geom_point(aes(x = eiqB11, y = wildAbF), colour = "green") +
+  ggtitle("Abundance of honey bees and wild bees vs Total PUI") +
+  xlab("Total PUI") + 
+  ylab("Abundance Rating")
+pui_plot
+
+#Doesn't show too much
+pui_plot <-  ggplot(data = data) +
+  geom_point(aes(x = eiqB11, y = apisAb), colour = "orange") +
+  geom_point(aes(x = eiqB11, y = wildAbF), colour = "green") +
+  ggtitle("Abundance of honey bees and wild bees vs Total PUI") +
+  xlab("Total PUI") + 
+  ylab("Abundance Rating")
+pui_plot
+
+
+fungicide_plot <-  ggplot(data = data) +
+  geom_point(aes(x = eiqB11.fun, y = apisAb), colour = "orange") +
+  geom_point(aes(x = eiqB11.fun, y = wildAbF), colour = "green") +
+  ggtitle("Abundance of honey bees and wild bees vs Total fungicide") +
+  xlab("Total Fungicide") + 
+  ylab("Abundance Rating")
+fungicide_plot
+
+Insectcide_plot <-  ggplot(data = data) +
+  geom_point(aes(x = eiqB11.ins, y = apisAb), colour = "orange") +
+  geom_point(aes(x = eiqB11.ins, y = wildAbF), colour = "green") +
+  ggtitle("Abundance of honey bees and wild bees vs Total fungicide") +
+  xlab("Total Fungicide") + 
+  ylab("Abundance Rating")
+Insectcide_plot
+
+###Looking at leaps, although not necessarily best approach due to colinearities 
+##Just non-varying terms before year and visit number
+summary(regsubsets( apisAb ~ eiqB11 + eiqB11.np	+ eiqB11.fun	+ eiqB11.ins +	eiqB11.ins.np +	
+                      eiqB11F.pre	+ eiqB11F.blm	+ eiqB11F.pos	+ eiqB11I.pre	+ eiqB11I.blm	+ 
+                      eiqB11I.pos	+ eiqB11I.pos.np	+ eiqB11T.blm	+ eiqB11T.pos	+ size	+ hive.acr	+ X2000nat
+, data = data, nvmax = 6)) 
+#Let's look at a graph of the one with 7 variables:
+#eiqB11.ins, eiqB11.ins.np eiqB11F.pos eiqB11I.pre eiqB11I.blm eiqB11I.pos eiqB11I.pos.np
+lm_non_vary <- lm(apisAb ~ eiqB11.ins +  eiqB11.ins.np + eiqB11F.pos + eiqB11I.pre +  eiqB11I.blm + eiqB11I.pos + eiqB11I.pos.np, data)
+  plot(lm_non_vary)
+  summary(lm_non_vary)
+
+  
+  
+  ###~~~~ With varying variables ~~~ neither of which appear as relevant at all...
+summary(regsubsets( apisAb ~ temp+ bloom.index + eiqB11 + eiqB11.np	+ eiqB11.fun	+ eiqB11.ins +	eiqB11.ins.np +	
+                       eiqB11F.pre	+ eiqB11F.blm	+ eiqB11F.pos	+ eiqB11I.pre	+ eiqB11I.blm	+ 
+                       eiqB11I.pos	+ eiqB11I.pos.np	+ eiqB11T.blm	+ eiqB11T.pos	+ size	+ hive.acr	+ X2000nat
+                     , data = data, nvmax = 6))   
+  
+  
+#Probably need to look into best ways to plot/compare these
+  non_vary_plot <- data %>% 
+  ggplot() +
+  geom_point(aes(x = id , y = apisAb)) +
+
+
