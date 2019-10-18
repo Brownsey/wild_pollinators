@@ -1,6 +1,7 @@
 library(tidyverse)
 library(ggmap)
 library(leaps)
+library(GGally)
 
 #Loading the data in from paper ~ downloaded from their resources as a .xlsx, created csv with useful page for quicker reading.
 data <- read.csv("data.csv") %>%
@@ -129,7 +130,8 @@ summary(regsubsets( apisAb ~ eiqB11 + eiqB11.np	+ eiqB11.fun	+ eiqB11.ins +	eiqB
 , data = data, nvmax = 6)) 
 #Let's look at a graph of the one with 7 variables:
 #eiqB11.ins, eiqB11.ins.np eiqB11F.pos eiqB11I.pre eiqB11I.blm eiqB11I.pos eiqB11I.pos.np
-lm_non_vary <- lm(apisAb ~ eiqB11.ins +  eiqB11.ins.np + eiqB11F.pos + eiqB11I.pre +  eiqB11I.blm + eiqB11I.pos + eiqB11I.pos.np, data)
+lm_non_vary <- lm(apisAb ~ eiqB11.ins +  eiqB11.ins.np + eiqB11F.pos +
+                    eiqB11I.pre +  eiqB11I.blm + eiqB11I.pos + eiqB11I.pos.np, data)
   plot(lm_non_vary)
   summary(lm_non_vary)
 
@@ -141,10 +143,22 @@ summary(regsubsets( apisAb ~ temp+ bloom.index + eiqB11 + eiqB11.np	+ eiqB11.fun
                        eiqB11I.pos	+ eiqB11I.pos.np	+ eiqB11T.blm	+ eiqB11T.pos	+ size	+ hive.acr	+ X2000nat
                      , data = data, nvmax = 6))   
   
-  
+ ##Both stepwise regressions so the same predictors as the best
+hist_resid <- ggplot(data=data, aes(lm_non_vary$residuals)) +
+  geom_histogram(binwidth = 1, color = "black", fill = "purple4") +
+  theme(panel.background = element_rect(fill = "white"),
+        axis.line.x=element_line(),
+        axis.line.y=element_line()) +
+  ggtitle("Histogram for Model Residuals")
+ 
 #Probably need to look into best ways to plot/compare these
-  non_vary_plot <- data %>% 
-  ggplot() +
-  geom_point(aes(x = id , y = apisAb)) +
 
+
+##GGally
+#Takes like 3 mins to run: so only run if u really wanna see them all and crashed R session Lol
+#ggpairs(data = data, columns = 7:34, title = "All Data predictors and outcomes")
+
+ggpairs(data = data, columns = 7:13, title = "Bees Data")
+
+ggpairs(data = data, columns = 13:34, title = "Predictor Data")
 
