@@ -162,3 +162,36 @@ ggpairs(data = data, columns = 7:13, title = "Bees Data")
 
 ggpairs(data = data, columns = 13:34, title = "Predictor Data")
 
+###~~~~ Code Post Meeting 1
+#Aim is to look at variable selection - really find out about each variable and what it does.
+
+day_data <- data %>%
+  filter(day %in% c("1","2")) %>%
+  mutate(year_day = ifelse(str_detect(day, "1") & str_detect(year, "3"), '11', 
+                           ifelse(str_detect(day, "2") & str_detect(year, "3"), '12',
+                           ifelse(str_detect(day, "1") & str_detect(year, "4"), '21',
+                            ifelse(str_detect(day, "2") & str_detect(year, "4"), '22', "55"))))) %>%
+  mutate(year_day = factor(year_day, labels = c("Year 3 and Day 1","Year 3 and Day 2", "Year 4 and Day 1", "Year 4 and Day 2")))
+
+
+
+honey_by_year_day <- day_data %>%
+  ggplot(aes(x = orchard, y = apisAb, colour = year_day)) +
+  geom_point() +
+  geom_line(aes(group = year_day)) +
+  theme_bw() +
+  ggtitle("Abundance of Honey Bees by Year and Visit Day") +
+  ylab("Honey Bee Abundance") +
+  xlab("Orchard")
+honey_by_year_day
+
+wild_by_year_day <- day_data %>%
+  ggplot(aes(x = orchard, y = wildAbF, colour = year_day)) +
+  geom_point() +
+  geom_line(aes(group = year_day)) +
+  theme_bw() +
+  ggtitle("Abundance of Wild Bees by Year and Visit Day") +
+  ylab("Wild Bee Abundance") +
+  xlab("Orchard")
+wild_by_year_day
+
