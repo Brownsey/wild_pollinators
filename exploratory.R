@@ -174,7 +174,16 @@ day_data <- data %>%
                             ifelse(str_detect(day, "2") & str_detect(year, "4"), '22', "55"))))) %>%
   mutate(year_day = factor(year_day, labels = c("Year 3 and Day 1","Year 3 and Day 2", "Year 4 and Day 1", "Year 4 and Day 2")))
 
-
+#checking data as there should be a result for each
+tibble(counts = c(count(day_data %>%
+        filter(year_day == "Year 3 and Day 1")),
+count(day_data %>%
+        filter(year_day == "Year 3 and Day 2")),
+count(day_data %>%
+        filter(year_day == "Year 4 and Day 1")),
+count(day_data %>%
+        filter(year_day == "Year 4 and Day 2")))) %>%
+  view()
 
 honey_by_year_day <- day_data %>%
   ggplot(aes(x = orchard, y = apisAb, colour = year_day)) +
@@ -195,6 +204,46 @@ wild_by_year_day <- day_data %>%
   ylab("Wild Bee Abundance") +
   xlab("Orchard")
 wild_by_year_day
+
+#Not sure how to label the lines, other software required the actual model to give percentages :/
+first_step <- grViz("
+digraph dot {
+
+graph [layout = dot,
+       rankdir = LR]
+
+node [shape = circle,
+      style = filled,
+      color = grey,
+      label = '']
+
+node [fillcolor = red,
+      label = 'Before Bloom']
+a
+
+node [fillcolor = green,
+      label = 'Apply Fungicide']
+b 
+
+node [fillcolor = green,
+      label = 'Apply Insecticide']
+c 
+
+node [fillcolor = green,
+      label = 'Apply Both']
+d
+
+node [fillcolor = green,
+      label = 'Apply Nothing']
+e
+
+node [fillcolor = orange]
+
+edge [color = grey]
+a -> {b c d e}
+}")
+first_step
+
 
 whole_decision_tree <- grViz("
 digraph dot {
@@ -246,3 +295,16 @@ aa -> {dl dm dn do}
 ab -> {dp dq dr ds}
 ac -> {ds dt du dv}
 }")
+whole_decision_tree
+
+
+#'~~probably won't work but'~~
+#Doesn't work but this is a rough idea of what the percentage outcomes give although we need to 
+#think of somehow quantifying bees as the "yield" variable
+decision_data <- tibble(
+  before = c("Apply Fungicide","Apply Insecticide", "Apply Both", "Apply Nothing"),
+  during = c("a","b","c","d"),
+  bee_yield = c(300,200,300,400)
+)
+a <- rpart(bee_yield ~ ., data = decision_data, method = 'class')
+rpart.plot(a,box.palette = "blue")
