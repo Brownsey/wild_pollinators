@@ -159,9 +159,9 @@ hist_resid <- ggplot(data=data, aes(lm_non_vary$residuals)) +
 #Takes like 3 mins to run: so only run if u really wanna see them all and crashed R session Lol
 #ggpairs(data = data, columns = 7:34, title = "All Data predictors and outcomes")
 
-ggpairs(data = data, columns = 7:13, title = "Bees Data")
+bees_data <- ggpairs(data = data, columns = 7:13, title = "Bees Data")
 
-ggpairs(data = data, columns = 13:34, title = "Predictor Data")
+predictor_data <- ggpairs(data = data, columns = 13:34, title = "Predictor Data")
 
 ###~~~~ Code Post Meeting 1
 #Aim is to look at variable selection - really find out about each variable and what it does.
@@ -204,6 +204,30 @@ wild_by_year_day <- day_data %>%
   ylab("Wild Bee Abundance") +
   xlab("Orchard")
 wild_by_year_day
+
+wild_temp_by_year_day <- day_data %>%
+  ggplot(aes(x = temp, y = wildAbF, colour =  year_day)) +
+  geom_point() +
+  geom_line(aes(group = year_day )) +
+  theme_classic()
+  
+honey_temp_by_year_day <- day_data %>%
+  ggplot(aes(x = temp, y = apisAb, colour =  year_day)) +
+  geom_point() +
+  geom_line(aes(group = year_day )) +
+  theme_classic()
+
+
+
+
+
+
+
+
+
+#~~~~LOOKING AT DECISION TREE MODELLING~~~####
+
+
 
 #Not sure how to label the lines, other software required the actual model to give percentages :/
 first_step <- grViz("
