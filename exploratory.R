@@ -2,7 +2,7 @@ library(tidyverse)
 library(ggmap)
 library(leaps)
 library(GGally)
-library(DiagrammeR)
+
 
 #Loading the data in from paper ~ downloaded from their resources as a .xlsx, created csv with useful page for quicker reading.
 data <- read.csv("data.csv") %>%
@@ -217,113 +217,6 @@ honey_temp_by_year_day <- day_data %>%
   geom_line(aes(group = year_day )) +
   theme_classic()
 
-
-
-
-
-
-
-
-
-#~~~~LOOKING AT DECISION TREE MODELLING~~~####
-
-
-
-#Not sure how to label the lines, other software required the actual model to give percentages :/
-first_step <- grViz("
-digraph dot {
-
-graph [layout = dot,
-       rankdir = LR]
-
-node [shape = circle,
-      style = filled,
-      color = grey,
-      label = '']
-
-node [fillcolor = red,
-      label = 'Before Bloom']
-a
-
-node [fillcolor = green,
-      label = 'Apply Fungicide']
-b 
-
-node [fillcolor = green,
-      label = 'Apply Insecticide']
-c 
-
-node [fillcolor = green,
-      label = 'Apply Both']
-d
-
-node [fillcolor = green,
-      label = 'Apply Nothing']
-e
-
-node [fillcolor = orange]
-
-edge [color = grey]
-a -> {b c d e}
-}")
-first_step
-
-
-whole_decision_tree <- grViz("
-digraph dot {
-
-graph [layout = dot,
-       rankdir = LR]
-
-node [shape = circle,
-      style = filled,
-      color = grey,
-      label = '']
-
-node [fillcolor = red]
-a
-
-node [fillcolor = green]
-b c d e
-
-node [fillcolor = orange]
-
-edge [color = grey]
-a -> {b c d e}
-b -> {f g h i j k}
-c -> {l m n o p q}
-d -> {q s t u v w}
-e -> {x y z aa ab ac}
-f -> {ad ae af ag}
-g -> {ah ai aj ak}
-h -> {al am an ao}
-i -> {ap aq ar as}
-j -> {at au av aw}
-k -> {ax ay az ba}
-l -> {bb bc bd be}
-m -> {bf bg bh bi}
-n -> {bj bk bl bm}
-o -> {bn bo bp bq}
-p -> {bs bt bu bv}
-q -> {bw bx by bz}
-r -> {ca cb cc cd}
-s -> {ce cf ch ci}
-t -> {cj ck cl cm}
-u -> {cn co cp cq}
-v -> {cr cs ct cu}
-w -> {cv cw cx cy}
-x -> {cz da db dc}
-y -> {dd de df dg}
-z -> {dh di dj dk}
-aa -> {dl dm dn do}
-ab -> {dp dq dr ds}
-ac -> {ds dt du dv}
-}")
-whole_decision_tree
-
-
-#'~~probably won't work but'~~
-#Doesn't work but this is a rough idea of what the percentage outcomes give although we need to 
 #think of somehow quantifying bees as the "yield" variable
 decision_data <- tibble(
   before = c("Apply Fungicide","Apply Insecticide", "Apply Both", "Apply Nothing"),
@@ -332,3 +225,48 @@ decision_data <- tibble(
 )
 a <- rpart(bee_yield ~ ., data = decision_data, method = 'class')
 rpart.plot(a,box.palette = "blue")
+
+##Post 25/10/19 chat##
+#Just looking at year 2012 data
+data_2012 <- day_data %>%
+  filter(year == 4)
+
+violin_data <- day_data %>%
+  select(c("region":"X2000nat")) %>%
+  gather(key = "explanatory", value = "value",-region, -day) %>%
+  na.omit()
+ 
+ 
+violin_plot_bees <- violin_data %>%
+  subset(explanatory %in% colnames(day_data[4:12])) %>%
+  ggplot() +
+  geom_violin(aes(x = factor(explanatory), y = value, fill = explanatory, colour = explanatory)) +
+  theme(legend.position = "none") +
+  ylab("Bee Rating") + 
+  xlab("Bee Factor") +
+  ggtitle("Distributions of each Bee Variable") +
+  theme_classic()
+violin_plot_bees
+
+
+violin_plot_fungicides <- violin_data %>%
+  subset(explanatory %in% colnames(day_data[c(19,22,23,24)])) %>%
+  ggplot() +
+  geom_violin(aes(x = factor(explanatory), y = value, fill = explanatory, colour = explanatory)) +
+  theme(legend.position = "none") +
+  ylab("Fungicide Rating") + 
+  xlab("Fungicide Factor") +
+  ggtitle("Distributions of each Fungicide Variable") +
+  theme_classic()
+violin_plot_fungicides
+
+
+
+get_name <- function(x) {
+  deparse(substitute(x))
+}
+
+
+
+
+
