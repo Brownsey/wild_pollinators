@@ -172,7 +172,8 @@ day_data <- data %>%
                            ifelse(str_detect(day, "2") & str_detect(year, "3"), '12',
                            ifelse(str_detect(day, "1") & str_detect(year, "4"), '21',
                             ifelse(str_detect(day, "2") & str_detect(year, "4"), '22', "55"))))) %>%
-  mutate(year_day = factor(year_day, labels = c("Year 3 and Day 1","Year 3 and Day 2", "Year 4 and Day 1", "Year 4 and Day 2")))
+  mutate(year_day = factor(year_day, labels = c("Year 3 and Day 1","Year 3 and Day 2", "Year 4 and Day 1", "Year 4 and Day 2"))) %>%
+  na.omit()
 
 #checking data as there should be a result for each
 tibble(counts = c(count(day_data %>%
@@ -235,32 +236,42 @@ violin_data <- day_data %>%
   select(c("region":"X2000nat")) %>%
   gather(key = "explanatory", value = "value",-region, -day) %>%
   na.omit()
- 
+
+violin_plot <- function(x, xlab, ylab, title){
+ x %>% ggplot() +
+    geom_violin(aes(x = factor(explanatory), y = value, fill = explanatory, colour = explanatory)) +
+    ylab(ylab) + 
+    xlab(xlab) +
+    ggtitle(title) +
+    theme(legend.position = "none") +
+    theme_classic()
+}
  
 violin_plot_bees <- violin_data %>%
   subset(explanatory %in% colnames(day_data[4:12])) %>%
-  ggplot() +
-  geom_violin(aes(x = factor(explanatory), y = value, fill = explanatory, colour = explanatory)) +
-  theme(legend.position = "none") +
-  ylab("Bee Rating") + 
-  xlab("Bee Factor") +
-  ggtitle("Distributions of each Bee Variable") +
-  theme_classic()
+  violin_plot("Bee Factor", "Bee Rating", "Distributions of each Bee Variable")
 violin_plot_bees
 
 
 violin_plot_fungicides <- violin_data %>%
   subset(explanatory %in% colnames(day_data[c(19,22,23,24)])) %>%
-  ggplot() +
-  geom_violin(aes(x = factor(explanatory), y = value, fill = explanatory, colour = explanatory)) +
-  theme(legend.position = "none") +
-  ylab("Fungicide Rating") + 
-  xlab("Fungicide Factor") +
-  ggtitle("Distributions of each Fungicide Variable") +
-  theme_classic()
+  violin_plot("Fungicide Factor","Fungicide Rating","Distributions of each Fungicide Variable")
 violin_plot_fungicides
 
+violin_plot_insecticide <- violin_data %>%
+  subset(explanatory %in% colnames(day_data[c(20,21,25:28)])) %>%
+  violin_plot("Insecticide Factor", "Insecticide Rating", "Distributions of each Insecticide Variable")
 
+bloom_plot <- day_data %>%
+  group_by(region, day) %>%
+  mutate(group = paste(region, day)) %>%
+  ggplot(aes(x= group, y = bloom.index)) +
+  geom_violin(aes(fill = group, colour = group)) +
+  geom_jitter(height = 0, width = 0.05) + 
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(x = "Region and Day", y = "Bloom Index", title = "Violin Plot of Bloom Index by Region and Day")
+bloom_plot
 
 get_name <- function(x) {
   deparse(substitute(x))
