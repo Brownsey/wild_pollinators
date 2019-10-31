@@ -1,9 +1,29 @@
+---
+title: "Exploratory Analysis"
+author: "Stephen Brownsey"
+date: "31/10/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+
+
+Required Libraries
+```{r libraries, results= "hide", message=F, warning=F}
 library(tidyverse)
 library(ggmap)
 library(leaps)
 library(GGally)
+```
 
+### Map Analysis
 
+```{r}
 #Loading the data in from paper ~ downloaded from their resources as a .xlsx, created csv with useful page for quicker reading.
 data <- read.csv("data.csv") %>%
   #renaming as column name had a few unrecognised characters in front
@@ -38,10 +58,13 @@ plotted_map <- ggmap(map) +
   xlab("Longitude") + 
   ylab("Latitude")
 plotted_map
+## 
+```
+
+### Jumped Straight into this original look
 
 
-# ~~~ Summarising variables ~~~#
-#Taking a look at how numbers of wild bees compare with 
+```{r}
 abundance_plot <- ggplot(data = data) +
   geom_point(aes(x = orchard, y = apisAb), colour = "orange") +
   geom_point(aes(x = orchard, y = wildAbF), colour = "green") +
@@ -122,9 +145,10 @@ Insectcide_plot <-  ggplot(data = data) +
   xlab("Total Fungicide") + 
   ylab("Abundance Rating")
 Insectcide_plot
+```
 
-###Looking at leaps, although not necessarily best approach due to colinearities 
-##Just non-varying terms before year and visit number
+### Leaps
+```{r}
 summary(regsubsets( apisAb ~ eiqB11 + eiqB11.np	+ eiqB11.fun	+ eiqB11.ins +	eiqB11.ins.np +	
                       eiqB11F.pre	+ eiqB11F.blm	+ eiqB11F.pos	+ eiqB11I.pre	+ eiqB11I.blm	+ 
                       eiqB11I.pos	+ eiqB11I.pos.np	+ eiqB11T.blm	+ eiqB11T.pos	+ size	+ hive.acr	+ X2000nat
@@ -153,19 +177,18 @@ hist_resid <- ggplot(data=data, aes(lm_non_vary$residuals)) +
   ggtitle("Histogram for Model Residuals")
  
 #Probably need to look into best ways to plot/compare these
+```
 
-
-##GGally
-#Takes like 3 mins to run: so only run if u really wanna see them all and crashed R session Lol
-#ggpairs(data = data, columns = 7:34, title = "All Data predictors and outcomes")
-
+### GGTally
+```{r}
 bees_data <- ggpairs(data = data, columns = 7:13, title = "Bees Data")
-
+bees_data
 predictor_data <- ggpairs(data = data, columns = 13:34, title = "Predictor Data")
+predictor_data
+```
 
-###~~~~ Code Post Meeting 1
-#Aim is to look at variable selection - really find out about each variable and what it does.
-
+### Looking at individual variables
+```{r}
 day_data <- data %>%
   filter(day %in% c("1","2")) %>%
   mutate(year_day = ifelse(str_detect(day, "1") & str_detect(year, "3"), '11', 
@@ -174,6 +197,7 @@ day_data <- data %>%
                             ifelse(str_detect(day, "2") & str_detect(year, "4"), '22', "55"))))) %>%
   mutate(year_day = factor(year_day, labels = c("Year 3 and Day 1","Year 3 and Day 2", "Year 4 and Day 1", "Year 4 and Day 2"))) %>%
   na.omit()
+
 
 #checking data as there should be a result for each
 tibble(counts = c(count(day_data %>%
@@ -224,11 +248,10 @@ decision_data <- tibble(
   during = c("a","b","c","d"),
   bee_yield = c(300,200,300,400)
 )
-a <- rpart(bee_yield ~ ., data = decision_data, method = 'class')
-rpart.plot(a,box.palette = "blue")
+```
 
-##Post 25/10/19 chat##
-#Just looking at year 2012 data
+### Code post 25/10
+```{r}
 data_2012 <- day_data %>%
   filter(year == 4)
 
@@ -271,7 +294,8 @@ distributions <- violin_data %>%
   theme_classic()
 distributions
 
-#Bloom values
+#Bloom values - particularly not ideal as it looks like the day 1 / day 2 actually is just random
+#lol not even in relation to bloom levels 
 bloom_plot <- day_data %>%
   group_by(region, day) %>%
   mutate(group = paste(region, day)) %>%
@@ -282,12 +306,4 @@ bloom_plot <- day_data %>%
   theme(legend.position = "none") +
   labs(x = "Region and Day", y = "Bloom Index", title = "Violin Plot of Bloom Index by Region and Day")
 bloom_plot
-
-get_name <- function(x) {
-  deparse(substitute(x))
-}
-
-
-
-
-
+```
