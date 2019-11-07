@@ -1,0 +1,219 @@
+---
+title: "For Botanist"
+author: "Stephen Brownsey"
+date: "03/11/2019"
+output: pdf_document
+---
+
+## Introduction
+Questions on Bees in Orchards study. But in particular, I'd like to know your opinion on the subsetting of the data for the purpose of the decision models, in particularly if there were any "obvious" ways to model it to start with. The data itself, doesn't seem to be great in my opinion for model building as it's quite hard to see how we can extract relationships that are that meaningful out of for the following reasons: The values of all the pesticides e.t.c are the same for each orchard at each visit occasion (All the values are the same each day for each year, which I find hard to believe) and obviously the bee abundance and richness levels vary alot depending on the visit but all the values are the same for these parameters (I ran best subsets regression on the the dataset and these values were the most significant which I also thought was odd as I was expecting bloom and temperature to have a significant affect as these are the only ones which change for each visit). Am I also right in thinking: richness is diversity of bee species and abundance is number of bees - in which case would you look at them combined or separately or just 1 of them when building the models ( I can model all scenarios but wondered what atleast would be your recommendation of starting point.) I have decided to only take the data from 2012 but in terms of further subsetting your opinion would be appreciated. In the data we have the pesticide levels, but these are never 0. So in the specification that Julia sent me done by the botanist it mentioned something along the lines of *Three isolated time periods which I would be interested in: Before Bloom, During Bloom and After Bloom.  Before bloom decision points: apply fungicide, apply insecticide, apply both and apply  neither. During bloom decision points: apply fungicide, apply insecticide, apply thinner, apply two of the three, apply all, apply nothing. After bloom decision points: apply insecticide, apply thinner, apply both, apple nothing. These can be visualised by the diagram below*. But from the data we have I don't quite see how I could follow this and extract this data to use for the purpose of modelling and wander the next best way to approach it. Perhaps a very simplified approach with the actual data and then a theoretically application if I had data on it? Not really sure how to approach the modellign side of things if I'm perfectly honest.
+```{r libraries, results= "hide", message=F, warning=F, echo = FALSE}
+library(tidyverse)
+library(ggmap)
+library(leaps)
+library(GGally)
+```
+
+### Map Analysis
+This is an image of where each of the orchards is located, more for interest but would you think that they would go around taking readings of different orchards based on similar days when they are close to each other? If so, would it make sense to apply some models to just one area?
+```{r, echo = FALSE, warning=FALSE}
+#Loading the data in from paper ~ downloaded from their resources as a .xlsx, created csv with useful page for quicker reading.
+data <- read.csv("data.csv") %>%
+  #renaming as column name had a few unrecognised characters in front
+  rename(orchard = contains("orchard"))
+
+#Creating an indicator variable to show whether the Orchard appeared in both years or just 1 (0 -> No, 1 -> Yes)  
+years <- data %>% 
+  select(orchard, year) %>%
+  distinct() %>%
+  count(orchard) %>%
+  rename(both_years = n) %>%
+  mutate(both_years = (both_years - 1)) %>%
+  mutate(id = row_number()) 
+
+
+data <- merge(data, years)%>%
+  na.omit()
+
+#Isolating the lat and long
+lat_long <- data %>% 
+  select(lat,long,both_years) %>%
+  distinct()
+
+register_google(key = "AIzaSyB9Hpt0vTWrALpm0iUyJxW6C2IuHZylpC8")
+map <- get_map(location = c(lon = mean(lat_long$lon), lat = mean(lat_long$lat)), zoom = 9,
+                      maptype = "satellite", scale = 2)
+
+#~~~~~Plotting the locations of all the orchards:
+plotted_map <- ggmap(map) +
+  geom_point(data = lat_long, aes(x = long, y = lat, fill = both_years , alpha = 0.8), size = 5, shape = 21) +
+  guides(fill = FALSE, alpha = FALSE, size = FALSE) +
+  ggtitle("Orchard Locations") +
+  xlab("Longitude") + 
+  ylab("Latitude")
+plotted_map
+## 
+```
+
+The variables in general are very correlated, as you would expect, but this means that for the decision models I would want to be looking at a subset of these but from a botanist's point of view which variables would she consider best?
+Not that clear in a .pdf but lots are upwards of 0.8/0.9 correlated.
+
+### GGTally
+```{r, echo = FALSE}
+#bees_data <- ggpairs(data = data, columns = 7:13, title = "Bees Data")
+#bees_data
+#predictor_data <- ggpairs(data = data, columns = 13:34, title = "Predictor Data")
+#predictor_data
+```
+
+### Looking at individual variables
+```{r, echo = FALSE, warning=FALSE}
+day_data <- data %>%
+  filter(day %in% c("1","2")) %>%
+  mutate(year_day = ifelse(str_detect(day, "1") & str_detect(year, "3"), '11', 
+                           ifelse(str_detect(day, "2") & str_detect(year, "3"), '12',
+                           ifelse(str_detect(day, "1") & str_detect(year, "4"), '21',
+                            ifelse(str_detect(day, "2") & str_detect(year, "4"), '22', "55"))))) %>%
+  mutate(year_day = factor(year_day, labels = c("Year 3 and Day 1","Year 3 and Day 2", "Year 4 and Day 1", "Year 4 and Day 2"))) %>%
+  na.omit()
+
+
+```
+
+### Code post 25/10
+Violin plots of the data - I am a fan of what these show, but in particular note the one for bloom.index (at the bottom), I had thought that day 1 would be < 50% bloom and day 2 post 50% bloom but this clearly shows this is not the case - thoughts? Have also included a distributions plot of the variables in the dataset for interest as it could be helpful when thinking about these things.
+```{r, echo = FALSE, warning=FALSE}
+data_2012 <- day_data %>%
+  filter(year == 4)
+
+#Looking at violin plots of the data
+violin_data <- day_data %>%
+  select(c("region":"X2000nat")) %>%
+  gather(key = "explanatory", value = "value",-region, -day) %>%
+  na.omit()
+
+violin_plot <- function(x, xlab, ylab, title){
+ x %>% ggplot() +
+    geom_violin(aes(x = factor(explanatory), y = value, fill = explanatory, colour = explanatory)) +
+    ylab(ylab) + 
+    xlab(xlab) +
+    ggtitle(title) +
+    theme(legend.position = "none") +
+    theme_classic()
+}
+ 
+violin_plot_bees <- violin_data %>%
+  subset(explanatory %in% colnames(day_data[4:12])) %>%
+  violin_plot("Bee Factor", "Bee Rating", "Distributions of each Bee Variable")
+violin_plot_bees
+
+
+violin_plot_fungicides <- violin_data %>%
+  subset(explanatory %in% colnames(day_data[c(19,22,23,24)])) %>%
+  violin_plot("Fungicide Factor","Fungicide Rating","Distributions of each Fungicide Variable")
+violin_plot_fungicides
+
+violin_plot_insecticide <- violin_data %>%
+  subset(explanatory %in% colnames(day_data[c(20,21,25:28)])) %>%
+  violin_plot("Insecticide Factor", "Insecticide Rating", "Distributions of each Insecticide Variable")
+
+#Distributions of all variables
+distributions <- violin_data %>%
+  ggplot() +
+  geom_density(aes(value)) +
+  facet_wrap(~explanatory, scales = "free") +
+  theme_classic()
+distributions
+
+#Bloom values - particularly not ideal as it looks like the day 1 / day 2 actually is just random
+#lol not even in relation to bloom levels 
+bloom_plot <- day_data %>%
+  group_by(region, day) %>%
+  mutate(group = paste(region, day)) %>%
+  ggplot(aes(x= group, y = bloom.index)) +
+  geom_violin(aes(fill = group, colour = group)) +
+  geom_jitter(height = 0, width = 0.05) + 
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(x = "Region and Day", y = "Bloom Index", title = "Violin Plot of Bloom Index by Region and Day")
+bloom_plot
+```
+
+
+## Graphics from botanists chat
+Another thing: Instead of the last figure with violin plots about bloom for region/day, could you do a scatter plot visualising the relationship between day 1 and day 2 bloom index? 
+y=day 1 bloom index versus x=day 2 index You can put all the all the three regions into the same scatter plot, using a different colour/plotting characters for each region.
+```{r, echo = FALSE, warning=FALSE}
+bloom_plot <- day_data %>%
+  group_by(region, day) %>%
+  mutate(group = paste(region, day)) %>%
+  ggplot(aes(x= orchard, y = bloom.index, colour = group, shape = group)) +
+  geom_point()+
+  theme_classic() +
+  labs(x = "Region and Day", y = "Bloom Index", title = "Scatter_plot of Bloom Index by Region and Day")
+bloom_plot
+
+
+
+bloom_plot_2012 <- data_2012 %>%
+  group_by(region, day) %>%
+  mutate(group = paste(region, day)) %>%
+  ggplot(aes(x= orchard, y = bloom.index, colour = group, shape = group)) +
+  geom_point()+
+  theme_classic() +
+  labs(x = "Region and Day", y = "Bloom Index", title = "Scatter_plot of Bloom Index by Region and Day for 2012 Data")
+bloom_plot_2012
+```
+The first step for us is to understand the chemicals applications better, including the combinations. The variables in the data are actually scores developed by the authors that capture the impact the have, so that is quite ready to use and comparable. (See Park et al for details.)
+```{r, echo = FALSE, warning=FALSE}
+fungicide_vs_insecticide <- function(data,y,y1,  title){
+  data %>%
+    ggplot(aes(x = orchard)) +
+  geom_point(aes_string( y = y), colour = "red") +
+  geom_point(aes_string( y = y1), colour = "blue") + 
+  theme_bw() +
+  ggtitle(title) +
+  ylab("Value")
+}
+
+data_2012 %>%
+  fungicide_vs_insecticide("eiqB11F.pre","eiqB11I.pre","eiqB11F.pre in red, eiqB11I.pre in blue")
+
+data_2012 %>%
+  fungicide_vs_insecticide("eiqB11F.blm","eiqB11I.blm","eiqB11F.blm in red, eiqB11I.blm in blue")
+
+data_2012 %>%
+  fungicide_vs_insecticide("eiqB11F.pos","eiqB11I.pos","eiqB11F.pos in red, eiqB11I.pos in blue")
+
+data_2012 %>%
+  fungicide_vs_insecticide("eiqB11F.pre","eiqB11I.pre","eiqB11F.pre in red, eiqB11I.pre in blue")
+
+data_2012 %>%
+  fungicide_vs_insecticide("eiqB11F.blm","eiqB11I.blm","eiqB11F.blm in red, eiqB11I.blm in blue")
+
+data_2012 %>%
+  fungicide_vs_insecticide("eiqB11F.pos","eiqB11I.pos","eiqB11F.pos in red, eiqB11I.pos in blue")
+
+distribution <- function(y){
+  data_2012 %>%
+     ggplot() +
+  geom_density(aes_string(y)) +
+    theme_bw() +
+    ggtitle(paste0("Density of ", y))
+}
+
+l <- c("eiqB11F.pos","eiqB11I.pos","eiqB11F.pre", "eiqB11I.pre","eiqB11F.blm", "eiqB11I.blm")
+lapply(l, distribution)
+
+# distribution("eiqB11F.pos")
+# distribution("eiqB11I.pos")
+# distribution("eiqB11F.pre")
+# distribution("eiqB11I.pre")
+# distribution("eiqB11F.blm")
+# distribution("eiqB11I.blm")
+
+
+``` 
+```{r, echo = FALSE, warning=FALSE}
+```
+```
