@@ -183,14 +183,14 @@ data_2012 %>%
   fungicide_vs_insecticide("eiqB11F.blm","eiqB11I.blm","eiqB11F.blm in red, eiqB11I.blm in blue")
 
 data_2012 %>%
-  fungicide_vs_insecticide("eiqB11F.pos","eiqB11I.pos","eiqB11F.pos in red, eiqB11I.pos in blue")
+  fungicide_vs_insecticide("eiqB11F.pos","eiqB11I.pos","eiqB11F.pos in red, eiqB11I.pos in blue")+
+  geom_point(aes(x = orchard, y = eiqB11I.pos.np), colour = "purple") 
 
 data_2012 %>%
   fungicide_vs_insecticide("eiqB11F.pre","eiqB11I.pre","eiqB11F.pre in red, eiqB11I.pre in blue")
 
 data_2012 %>%
-  fungicide_vs_insecticide("eiqB11F.blm","eiqB11I.blm","eiqB11F.blm in red, eiqB11I.blm in blue")
-
+  fungicide_vs_insecticide("eiqB11F.blm","eiqB11I.blm","eiqB11F.blm in red, eiqB11I.blm in blue") 
 data_2012 %>%
   fungicide_vs_insecticide("eiqB11F.pos","eiqB11I.pos","eiqB11F.pos in red, eiqB11I.pos in blue")
 
