@@ -144,9 +144,12 @@ bloom_plot
 Another thing: Instead of the last figure with violin plots about bloom for region/day, could you do a scatter plot visualising the relationship between day 1 and day 2 bloom index? 
 y=day 1 bloom index versus x=day 2 index You can put all the all the three regions into the same scatter plot, using a different colour/plotting characters for each region.
 ```{r, echo = FALSE, warning=FALSE}
-bloom_plot <- day_data %>%
+group_day_data <-  day_data %>%
   group_by(region, day) %>%
-  mutate(group = paste(region, day)) %>%
+  mutate(group = paste(region, day))
+
+
+bloom_plot <- group_day_data  %>%
   ggplot(aes(x= orchard, y = bloom.index, colour = group, shape = group)) +
   geom_point()+
   theme_classic() +
@@ -155,14 +158,29 @@ bloom_plot
 
 
 
-bloom_plot_2012 <- data_2012 %>%
-  group_by(region, day) %>%
-  mutate(group = paste(region, day)) %>%
+bloom_plot_2012 <- group_day_data  %>%
   ggplot(aes(x= orchard, y = bloom.index, colour = group, shape = group)) +
   geom_point()+
   theme_classic() +
   labs(x = "Region and Day", y = "Bloom Index", title = "Scatter_plot of Bloom Index by Region and Day for 2012 Data")
 bloom_plot_2012
+
+by_day <- tibble(day_1 = data_2012 %>% 
+                      filter(day == 1) %>%
+                      select(bloom.index), 
+                    day_2 = data_2012 %>% 
+                      filter(day == 2) %>%
+                      select(bloom.index), 
+                    colour = data_2012 %>%
+                      filter(row_number() %% 2 == 1) %>%
+                      select(region)) 
+
+
+day_1_2 <- by_day %>%
+  ggplot() + 
+  geom_point(aes(x = day_1$bloom.index, y = day_2$bloom.index, colour = colour$region)) +
+  theme_bw()
+day_1_2
 ```
 The first step for us is to understand the chemicals applications better, including the combinations. The variables in the data are actually scores developed by the authors that capture the impact the have, so that is quite ready to use and comparable. (See Park et al for details.)
 ```{r, echo = FALSE, warning=FALSE}
@@ -186,15 +204,7 @@ data_2012 %>%
   fungicide_vs_insecticide("eiqB11F.pos","eiqB11I.pos","eiqB11F.pos in red, eiqB11I.pos in blue")+
   geom_point(aes(x = orchard, y = eiqB11I.pos.np), colour = "purple") 
 
-data_2012 %>%
-  fungicide_vs_insecticide("eiqB11F.pre","eiqB11I.pre","eiqB11F.pre in red, eiqB11I.pre in blue")
-
-data_2012 %>%
-  fungicide_vs_insecticide("eiqB11F.blm","eiqB11I.blm","eiqB11F.blm in red, eiqB11I.blm in blue") 
-data_2012 %>%
-  fungicide_vs_insecticide("eiqB11F.pos","eiqB11I.pos","eiqB11F.pos in red, eiqB11I.pos in blue")
-
-distribution <- function(y){
+density_plot <- function(y){
   data_2012 %>%
      ggplot() +
   geom_density(aes_string(y)) +
@@ -202,18 +212,41 @@ distribution <- function(y){
     ggtitle(paste0("Density of ", y))
 }
 
-l <- c("eiqB11F.pos","eiqB11I.pos","eiqB11F.pre", "eiqB11I.pre","eiqB11F.blm", "eiqB11I.blm")
-lapply(l, distribution)
 
-# distribution("eiqB11F.pos")
-# distribution("eiqB11I.pos")
-# distribution("eiqB11F.pre")
-# distribution("eiqB11I.pre")
-# distribution("eiqB11F.blm")
-# distribution("eiqB11I.blm")
+hist_plot <- function(y){
+  data_2012 %>%
+    ggplot(aes( fill = region)) +
+    geom_histogram(aes_string(y)) + 
+    theme_bw() +
+    ggtitle(paste0("Histogram of " , y))
+}
+
+l <- c("eiqB11F.pos","eiqB11I.pos","eiqB11F.pre", "eiqB11I.pre","eiqB11F.blm", "eiqB11I.blm")
+lapply(l, density_plot)
+lapply(l, hist_plot)
+
 
 
 ``` 
+Looking at kmeans for clustering of orchards to decide on decision model.
 ```{r, echo = FALSE, warning=FALSE}
+#Can probably put all kmeans into this datatype and sort it that way
+kmeans_pre_4 <- tibble(cluster = kmeans(data_2012 %>% select(eiqB11F.pre, eiqB11I.pre), 4)$cluster)
+
+data_clusters <- tibble(kmeans_pre_4, data_2012)
+data_clusters %>%
+  ggplot() +
+  geom_point(aes(x = data_2012$orchard, y = data_2012$eiqB11I.pre,colour = factor(kmeans_pre_4$cluster))) + 
+  geom_point(aes(x = data_2012$orchard, y = data_2012$eiqB11F.pre,colour = factor(kmeans_pre_4$cluster))) +
+  theme_bw()
+
+
+k_clusters <- tibble(by_day, kmeans = data_clusters %>% filter(row_number() %% 2 == 1))
+k_clusters %>%
+  ggplot() + 
+  geom_point(aes(by_day$day_1$bloom.index, y = by_day$day_2$bloom.index, colour = factor(kmeans$kmeans_pre_4$cluster))) +
+  theme_bw()
 ```
-```
+
+
+
