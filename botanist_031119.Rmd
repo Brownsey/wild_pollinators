@@ -231,20 +231,38 @@ lapply(l, hist_plot)
 Looking at kmeans for clustering of orchards to decide on decision model.
 ```{r, echo = FALSE, warning=FALSE}
 #Can probably put all kmeans into this datatype and sort it that way
-kmeans_pre_4 <- tibble(cluster = kmeans(data_2012 %>% select(eiqB11F.pre, eiqB11I.pre), 4)$cluster)
+kmeans_clusters <- tibble(cluster_2_pre = kmeans(data_2012 
+                                    %>% select(eiqB11F.pre, eiqB11I.pre), 2)$cluster,
+                          cluster_3_pre = kmeans(data_2012 
+                                    %>% select(eiqB11F.pre, eiqB11I.pre), 3)$cluster,
+                          cluster_4_pre = kmeans(data_2012 
+                                    %>% select(eiqB11F.pre, eiqB11I.pre), 4)$cluster,
+                          cluster_2_blm = kmeans(data_2012 
+                                    %>% select(eiqB11F.blm, eiqB11I.blm), 2)$cluster,
+                          cluster_3_blm = kmeans(data_2012 
+                                    %>% select(eiqB11F.blm, eiqB11I.blm), 3)$cluster,
+                          cluster_4_blm = kmeans(data_2012 
+                                    %>% select(eiqB11F.blm, eiqB11I.blm), 4)$cluster,
+                          cluster_2_pos = kmeans(data_2012 
+                                    %>% select(eiqB11F.pos, eiqB11I.pos), 2)$cluster,
+                          cluster_3_pos = kmeans(data_2012 
+                                    %>% select(eiqB11F.pos, eiqB11I.pos), 3)$cluster,
+                          cluster_4_pos = kmeans(data_2012 
+                                    %>% select(eiqB11F.pos, eiqB11I.pos), 4)$cluster,
+                 )
 
-data_clusters <- tibble(kmeans_pre_4, data_2012)
+data_clusters <- tibble(kmeans_clusters, data_2012)
 data_clusters %>%
   ggplot() +
-  geom_point(aes(x = data_2012$orchard, y = data_2012$eiqB11I.pre,colour = factor(kmeans_pre_4$cluster))) + 
-  geom_point(aes(x = data_2012$orchard, y = data_2012$eiqB11F.pre,colour = factor(kmeans_pre_4$cluster))) +
+  geom_point(aes(x = data_2012$orchard, y = data_2012$eiqB11I.pre,colour = factor(kmeans_clusters$cluster_4_pre))) + 
+  geom_point(aes(x = data_2012$orchard, y = data_2012$eiqB11F.pre,colour = factor(kmeans_clusters$cluster_4_pre))) +
   theme_bw()
-
 
 k_clusters <- tibble(by_day, kmeans = data_clusters %>% filter(row_number() %% 2 == 1))
 k_clusters %>%
   ggplot() + 
-  geom_point(aes(by_day$day_1$bloom.index, y = by_day$day_2$bloom.index, colour = factor(kmeans$kmeans_pre_4$cluster))) +
+  geom_point(aes(by_day$day_1$bloom.index, y = by_day$day_2$bloom.index, colour = factor(kmeans$kmeans_clusters$cluster_4_pre))) +
+  labs(x = "Day 1 Bloom", y = "Day 2 Bloom" ,colour='Decision Arm') + 
   theme_bw()
 ```
 
