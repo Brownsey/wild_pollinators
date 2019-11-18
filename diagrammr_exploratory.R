@@ -15,9 +15,9 @@ node [fillcolor = red,
       label = 'Before Bloom']
 a
 
-node [fillcolor = green,
+node [fillcolor = red,
       label = 'Apply Fungicide']
-b 
+b c
 
 node [fillcolor = green,
       label = 'Apply Insecticide']
@@ -37,6 +37,197 @@ edge [color = grey]
 a -> {b c d e}
 }")
 first_step
+
+
+
+
+
+tree_2_2_2 <- grViz("
+digraph dot {
+
+graph [layout = dot,
+       rankdir = LR]
+
+node [shape = circle,
+      style = filled,
+      color = grey,
+      label = '0']
+
+node [fillcolor = red,
+      label = '16']
+a
+
+node [fillcolor = green,
+label = '10']
+b 
+
+node [fillcolor = green,
+label = '6']
+c
+
+node [fillcolor = orange,
+label = '1']
+d 
+
+node [fillcolor = orange,
+label = '9']
+e
+
+node [fillcolor = orange,
+label = '1']
+f 
+
+node [fillcolor = orange,
+label = '5']
+g
+
+node [fillcolor = grey,
+label = '1']
+h 
+
+node [fillcolor = grey,
+label = '9']
+j 
+
+node [fillcolor = grey,
+label = '2']
+o 
+
+node [fillcolor = grey,
+label = '3']
+n
+
+node [fillcolor = grey,
+label = '1']
+m 
+
+
+node [fillcolor = grey,
+label = '0']
+i k l
+
+edge [color = grey]
+a -> {b c}
+b -> {d e}
+c -> {f g}
+d -> {h i}
+e -> {j k}
+f -> {l m}
+g -> {n o}
+}")
+tree_2_2_2
+
+
+tree_2_2_2 <- grViz("
+digraph dot {
+
+graph [layout = dot,
+       rankdir = LR]
+
+node [shape = circle,
+      style = filled,
+      color = grey,
+      label = '0']
+
+node [fillcolor = red,
+      label = '16']
+a
+
+node [fillcolor = green,
+label = '10']
+b 
+
+node [fillcolor = green,
+label = '6']
+c
+
+node [fillcolor = orange,
+label = '1']
+d 
+
+node [fillcolor = orange,
+label = '9']
+e
+
+node [fillcolor = orange,
+label = '1']
+f 
+
+node [fillcolor = orange,
+label = '5']
+g
+
+node [fillcolor = grey,
+label = '1']
+h 
+
+node [fillcolor = grey,
+label = '9']
+j 
+
+node [fillcolor = grey,
+label = '2']
+o 
+
+node [fillcolor = grey,
+label = '3']
+n
+
+node [fillcolor = grey,
+label = '1']
+m 
+
+
+node [fillcolor = grey,
+label = '0']
+i k l
+
+edge [color = grey]
+a -> {b c}
+b -> {d e}
+c -> {f g}
+d -> {h i}
+e -> {j k}
+f -> {l m}
+g -> {n o}
+}")
+tree_2_2_2
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+whole_decision_tree
+
+
+
+
+
+
+
+
 
 
 whole_decision_tree <- grViz("

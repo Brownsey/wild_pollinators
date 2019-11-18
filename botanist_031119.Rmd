@@ -84,7 +84,8 @@ day_data <- data %>%
 Violin plots of the data - I am a fan of what these show, but in particular note the one for bloom.index (at the bottom), I had thought that day 1 would be < 50% bloom and day 2 post 50% bloom but this clearly shows this is not the case - thoughts? Have also included a distributions plot of the variables in the dataset for interest as it could be helpful when thinking about these things.
 ```{r, echo = FALSE, warning=FALSE}
 data_2012 <- day_data %>%
-  filter(year == 4)
+  filter(year == 4) %>%
+  filter(both_years == 1)
 
 #Looking at violin plots of the data
 violin_data <- day_data %>%
@@ -229,8 +230,10 @@ lapply(l, hist_plot)
 
 ``` 
 Looking at kmeans for clustering of orchards to decide on decision model.
+
 ```{r, echo = FALSE, warning=FALSE}
 #Can probably put all kmeans into this datatype and sort it that way
+set.seed(666)
 kmeans_clusters <- tibble(cluster_2_pre = kmeans(data_2012 
                                     %>% select(eiqB11F.pre, eiqB11I.pre), 2)$cluster,
                           cluster_3_pre = kmeans(data_2012 
@@ -250,6 +253,66 @@ kmeans_clusters <- tibble(cluster_2_pre = kmeans(data_2012
                           cluster_4_pos = kmeans(data_2012 
                                     %>% select(eiqB11F.pos, eiqB11I.pos), 4)$cluster,
                  )
+# With this method only 7 out of the possible 16 arms in the decision model with have any results
+current <- kmeans_clusters %>%
+  select(cluster_4_pre, cluster_2_blm, cluster_2_pos) %>%
+  group_by_all() %>% 
+  summarise(COUNT = n())
+current
+
+
+#####Looking deeper into the clustering of the 2_2_2
+left <-  kmeans_clusters %>%
+  group_by_all() %>%
+  mutate(id = row_number())
+
+
+right <- data_2012 %>%
+  group_by(orchard,day)  %>%
+  mutate(id = row_number())
+orchard_clusters <- bind_cols(left, right)
+
+#Function to calulate the diff percentages of clusters
+bloomarise <- function(x){
+  x %>%
+      summarise(fung_pre = round(mean(eiqB11F.pre), 2),
+            insect_pre = round(mean(eiqB11I.pre), 2),
+            fung_blm = round(mean(eiqB11F.blm), 2),
+            insect_blm = round(mean(eiqB11I.blm), 2),
+            fung_pos = round(mean(eiqB11F.pos), 2),
+            insect_pos = round(mean(eiqB11I.pos), 2))
+}
+
+
+bloom_2_2_2 <- orchard_clusters %>%
+  group_by(cluster_2_pre, cluster_2_blm, cluster_2_pos) %>%
+  bloomarise
+bloom_2_2_2
+
+bloom_4_2_2 <- orchard_clusters %>%
+  group_by(cluster_4_pre, cluster_2_blm, cluster_2_pos) %>%
+  bloomarise
+bloom_4_2_2
+
+bloom_3_3_3 <- orchard_clusters %>%
+  group_by(cluster_3_pre, cluster_3_blm, cluster_3_pos) %>%
+  bloomarise
+bloom_3_3_3
+
+
+current_2 <- kmeans_clusters %>%
+  select(cluster_2_pre, cluster_2_blm, cluster_2_pos) %>%
+  group_by_all() %>% 
+  summarise(COUNT = n())
+current_2
+
+current_3 <- kmeans_clusters %>%
+  select(cluster_3_pre, cluster_3_blm, cluster_3_pos) %>%
+  group_by_all() %>% 
+  summarise(COUNT = n())
+current_3
+
+
 
 data_clusters <- tibble(kmeans_clusters, data_2012)
 data_clusters %>%
@@ -259,12 +322,28 @@ data_clusters %>%
   theme_bw()
 
 k_clusters <- tibble(by_day, kmeans = data_clusters %>% filter(row_number() %% 2 == 1))
-k_clusters %>%
+pre <- k_clusters %>%
   ggplot() + 
   geom_point(aes(by_day$day_1$bloom.index, y = by_day$day_2$bloom.index, colour = factor(kmeans$kmeans_clusters$cluster_4_pre))) +
-  labs(x = "Day 1 Bloom", y = "Day 2 Bloom" ,colour='Decision Arm') + 
+  labs(title = "Pre-Bloom Decisions", x = "Day 1 Bloom", y = "Day 2 Bloom" , colour='Decision Arm') + 
   theme_bw()
+pre
+
+blm <- k_clusters %>%
+  ggplot() + 
+  geom_point(aes(by_day$day_1$bloom.index, y = by_day$day_2$bloom.index, colour = factor(kmeans$kmeans_clusters$cluster_2_blm))) +
+  labs(title = "During-Bloom Decisions", x = "Day 1 Bloom", y = "Day 2 Bloom" , colour='Decision Arm') + 
+  theme_bw()
+blm
+
+pos <- k_clusters %>%
+  ggplot() + 
+  geom_point(aes(by_day$day_1$bloom.index, y = by_day$day_2$bloom.index, colour = factor(kmeans$kmeans_clusters$cluster_2_pos))) +
+  labs(title = "Post-Bloom Decisions", x = "Day 1 Bloom", y = "Day 2 Bloom" , colour='Decision Arm') + 
+  theme_bw()
+pos
 ```
+
 
 
 
