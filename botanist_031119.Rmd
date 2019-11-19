@@ -84,8 +84,7 @@ day_data <- data %>%
 Violin plots of the data - I am a fan of what these show, but in particular note the one for bloom.index (at the bottom), I had thought that day 1 would be < 50% bloom and day 2 post 50% bloom but this clearly shows this is not the case - thoughts? Have also included a distributions plot of the variables in the dataset for interest as it could be helpful when thinking about these things.
 ```{r, echo = FALSE, warning=FALSE}
 data_2012 <- day_data %>%
-  filter(year == 4) %>%
-  filter(both_years == 1)
+  filter(year == 4) 
 
 #Looking at violin plots of the data
 violin_data <- day_data %>%
