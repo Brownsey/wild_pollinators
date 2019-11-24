@@ -65,7 +65,9 @@ plotted_map
 ```{r}
 abundance_plot <- ggplot(data = data) +
   geom_point(aes(x = orchard, y = apisAb), colour = "orange") +
+  geom_smooth(aes(x = orchard, y = apisAb), colour = "orange") +
   geom_point(aes(x = orchard, y = wildAbF), colour = "green") +
+  geom_smooth(aes(x = orchard, y = wildAbF), colour = "green") +
   ggtitle("Abundance of honey bees and wild bees vs  temperature") +
   xlab("Orchard") + 
   ylab("Abundance Rating")
@@ -84,11 +86,20 @@ abundance_summary
 temperature_plot <- ggplot(data = data) +
   geom_point(aes(x = temp, y = apisAb), colour = "orange") +
   geom_point(aes(x = temp, y = wildAbF), colour = "green") +
-  ggtitle("Abundance of honey bees and wild bees vs temperature") +
+  ggtitle("Abundance of honey bees (orange) and wild bees (green) vs temperature") +
   xlab("Temperature") + 
-  ylab("Abundance Rating")
+  ylab("Abundance Rating")+
+  theme_bw()
 temperature_plot
 
+
+honey_temp <- ggplot(data = data, aes(x = temp, y = log(apisAb + 1) )) +
+  geom_point() +
+  ggtitle("Honey Bee Abundance vs Temperature") +
+  geom_smooth() +
+  geom_smooth(method='lm', formula= y~x, se = FALSE, colour = "red") +
+  theme_bw() 
+honey_temp
 #Looking at the data it seems a quadratic model would be the best fit, shown below
 temperature_plot <- temperature_plot +
   stat_smooth(aes(x = temp, y = apisAb), method = "lm", formula = y ~ x + I(x^2), colour = "orange") +

@@ -54,31 +54,31 @@ node [shape = circle,
       label = '0']
 
 node [fillcolor = red,
-      label = '16']
+      label = '19']
 a
 
 node [fillcolor = green,
-label = '10']
+label = '15']
 b 
 
 node [fillcolor = green,
-label = '6']
+label = '4']
 c
 
 node [fillcolor = orange,
-label = '1']
+label = '3']
 d 
 
 node [fillcolor = orange,
-label = '9']
+label = '12']
 e
 
 node [fillcolor = orange,
-label = '1']
+label = '0']
 f 
 
 node [fillcolor = orange,
-label = '5']
+label = '4']
 g
 
 node [fillcolor = grey,
@@ -86,25 +86,33 @@ label = '1']
 h 
 
 node [fillcolor = grey,
+label = '2']
+i 
+
+node [fillcolor = grey,
 label = '9']
 j 
 
 node [fillcolor = grey,
-label = '2']
+label = '3']
+k
+
+node [fillcolor = grey,
+label = '4']
 o 
 
 node [fillcolor = grey,
-label = '3']
+label = '0']
 n
 
 node [fillcolor = grey,
-label = '1']
+label = '0']
 m 
 
 
 node [fillcolor = grey,
 label = '0']
-i k l
+i l
 
 edge [color = grey]
 a -> {b c}

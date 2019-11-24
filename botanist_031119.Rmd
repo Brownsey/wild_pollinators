@@ -12,6 +12,7 @@ library(tidyverse)
 library(ggmap)
 library(leaps)
 library(GGally)
+library(gridExtra)
 ```
 
 ### Map Analysis
@@ -137,6 +138,18 @@ bloom_plot <- day_data %>%
   theme(legend.position = "none") +
   labs(x = "Region and Day", y = "Bloom Index", title = "Violin Plot of Bloom Index by Region and Day")
 bloom_plot
+
+
+bloom_plot_2012 <- data_2012 %>%
+  group_by(region, day) %>%
+  mutate(group = paste(region, day)) %>%
+  ggplot(aes(x= group, y = bloom.index)) +
+  geom_violin(aes(fill = group, colour = group)) +
+  geom_jitter(height = 0, width = 0.05) + 
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(x = "Region and Day", y = "Bloom Index", title = "Violin Plot of Bloom Index by Region and Day")
+bloom_plot_2012
 ```
 
 
@@ -224,9 +237,11 @@ hist_plot <- function(y){
 l <- c("eiqB11F.pos","eiqB11I.pos","eiqB11F.pre", "eiqB11I.pre","eiqB11F.blm", "eiqB11I.blm")
 lapply(l, density_plot)
 lapply(l, hist_plot)
+#couple of examples for progress report
+ex1 <- density_plot("eiqB11I.pos")
+ex2 <- hist_plot("eiqB11I.blm")
 
-
-
+a <- grid.arrange(temperature_plot, honey_temp, ex1,ex2, nrow = 2)
 ``` 
 Looking at kmeans for clustering of orchards to decide on decision model.
 
@@ -258,6 +273,19 @@ current <- kmeans_clusters %>%
   group_by_all() %>% 
   summarise(COUNT = n())
 current
+
+current_2 <- kmeans_clusters %>%
+  select(cluster_2_pre, cluster_2_blm, cluster_2_pos) %>%
+  group_by_all() %>% 
+  summarise(COUNT = n())
+current_2
+
+current_3 <- kmeans_clusters %>%
+  select(cluster_3_pre, cluster_3_blm, cluster_3_pos) %>%
+  group_by_all() %>% 
+  summarise(COUNT = n())
+current_3
+
 
 
 #####Looking deeper into the clustering of the 2_2_2
@@ -299,18 +327,6 @@ bloom_3_3_3 <- orchard_clusters %>%
 bloom_3_3_3
 
 
-current_2 <- kmeans_clusters %>%
-  select(cluster_2_pre, cluster_2_blm, cluster_2_pos) %>%
-  group_by_all() %>% 
-  summarise(COUNT = n())
-current_2
-
-current_3 <- kmeans_clusters %>%
-  select(cluster_3_pre, cluster_3_blm, cluster_3_pos) %>%
-  group_by_all() %>% 
-  summarise(COUNT = n())
-current_3
-
 
 
 data_clusters <- tibble(kmeans_clusters, data_2012)
@@ -343,6 +359,19 @@ pos <- k_clusters %>%
 pos
 ```
 
+Looking at correlations
+```{r}
+a <- data.frame(matrix(0, nrow = 0, ncol = 0))
 
+for(i in 1:7){
+  for(j in 1:7){
+  a[i,j] <- round(cor(data_2012[5+i], data_2012[5 + j]), 2)
+  }
+}
+a
+for(i in 1:7){
+ names(a)[i] <- colnames(data_2012[5 +i])
+}
 
+```
 
