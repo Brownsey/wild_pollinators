@@ -1,0 +1,35 @@
+---
+title: "Post_Report"
+author: "Stephen Brownsey"
+date: "06/12/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libraries, results= "hide", message=F, warning=F, echo = FALSE}
+library(tidyverse)
+library(ggmap)
+library(leaps)
+library(GGally)
+library(gridExtra)
+```
+
+```{r}
+data <- day_data; x <- a;
+shape_plot <- function(data, x){
+  x <- x[[i]]
+  
+  print(data %>%
+    ggplot() +
+    geom_point(aes_string(x = x[1], y = x[2])))
+}
+
+a <- list(c("apisAb", "wildAbF"), c("region", "solitaryAbF"))
+for(i in 1: length(a)){
+  shape_plot(day_data, a)
+}
+
+```
