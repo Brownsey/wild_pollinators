@@ -13,6 +13,14 @@ library(ggmap)
 library(leaps)
 library(GGally)
 library(gridExtra)
+library(factoextra)
+library(FactoMineR)
+library(BBmisc)
+library(pvclust)
+library(NbClust)
+library(class)
+library(cluster)
+library(clValid)
 ```
 
 ### Map Analysis
@@ -359,7 +367,7 @@ pos <- k_clusters %>%
 pos
 ```
 
-Looking at correlations
+Looking at correlations of the bee variables
 ```{r}
 a <- data.frame(matrix(0, nrow = 0, ncol = 0))
 
@@ -374,4 +382,150 @@ for(i in 1:7){
 }
 
 ```
+### Objective 1b/c/1d further models and analysis
+After speaking with botanist, no predefined appraoch will be taken.
+All the models will be created using a data driven approach, so going to look at some different clustering methods fitted using the 19 orchards as the data and then compare the different models and clustering methods.
+From the Kmeans analysis above, the different seed returning differing clusterings is not ideal, so some different approaches will be looked at. It is also clear that more factors need to be taken into account in the clustering process rather than just the insecticide and pesticide levels. Also pamk and knee/elbow method will be used to decide the number of clusters.
 
+
+New variables to be added into the clustering diagrams: 
+
+Insecticide and Pesticide and type of surroundings.
+
+#### Version 2
+
+```{r}
+cluster_2_data <- data_2012 %>%
+  select(ends_with(".pre"),ends_with(".blm"), ends_with(".pos"), X2000nat)
+#Shows no difference here although from previous work ward method was best
+# matrix of methods to compare
+m <- c( "average", "single", "complete", "ward")
+names(m) <- c( "average", "single", "complete", "ward")
+distances <- c("euclidean", "maximum", "manhattan", "canberra", 
+               "binary", "minkowski")
+names(distances) <- c("euclidean", "maximum", "manhattan", 
+                      "canberra", "binary", "minkowski")
+clust_comps <- matrix(nrow = length(distances), ncol = length(m), 
+                      dimnames = list(distances,m))
+# function to compute coefficient
+ac <- function(distance, linkage) {
+  dista <- dist(cluster_2_data , method = distance)
+  #Agglomerative Nesting form of Hierarchical Clustering
+  agnes(dista, method = linkage)$ac
+}
+for(i in 1:length(distances)) {
+  for(j in 1:length(m)) {
+    clust_comps[i,j] <- ac(distances[i], m[j])
+  }
+}
+
+
+#Clusters of whole data combined - 7
+fviz_nbclust(NbClust(cluster_2_data, distance="euclidean", 
+                                min.nc=2, max.nc=4, method="ward.D2", index="all"))
+#pre ~ max of 4 clusters at each time point in method, but  in general if you allow
+#More as this argument then more returned a better  optimal cluster number
+fviz_nbclust(NbClust(cluster_2_data %>% select(ends_with(".pre"), X2000nat), distance="euclidean", 
+                                min.nc=2, max.nc=4, method="ward.D2", index="all"))
+#during
+fviz_nbclust(NbClust(cluster_2_data %>% select(ends_with(".blm"), X2000nat), distance="euclidean", 
+                                min.nc=2, max.nc=4, method="ward.D2", index="all"))
+#post
+fviz_nbclust(NbClust(cluster_2_data %>% select(ends_with(".pos"), X2000nat), distance="euclidean", 
+                                min.nc=2, max.nc=4, method="ward.D2", index="all"))
+```
+
+
+Step 1: shows for all the data and pre bloom stage = 3 clusters is best out of our cluster range considered. Come back to this
+```{r}
+#Applying agglomerative clustering with 3 clusters:
+clustered <- agnes(dist(cluster_2_data, method = "euclidian"), 
+                   diss=TRUE, method = "ward")
+# add cluster labels to the training data
+cluster_2_data$cluster <- cutree(clustered, k=3)
+cl2_bloom <- vector(length = 3)
+#so doesn't work with subclusters 2 and 3
+for(i in 1:3){
+  cl2_bloom[i] <- fviz_nbclust(NbClust(cluster_2_data %>% filter(cluster == i) %>% select(ends_with(".blm"),
+                              X2000nat), distance="euclidian", min.nc=2, max.nc=4, method="ward.D2", index="all"))
+}
+
+
+fviz_nbclust(NbClust(cluster_2_data %>% filter(cluster == 2) %>% select(ends_with(".blm"), X2000nat), distance="euclidean", 
+                                min.nc=2, max.nc=4, method="ward.D2", index="all"))
+
+
+hclust(cluster_2_data)
+```
+
+Now from though process, only the variables that should be included in the clustering should be the pesticides: insecticide/pesticide/thinner e.t.c
+
+```{r}
+cluster_2_data <- data_2012 %>%
+  select(ends_with(".pre"),ends_with(".blm"), ends_with(".pos")) %>%
+  unique()
+
+
+#Clusters of whole data combined - 7
+fviz_nbclust(NbClust(cluster_2_data, distance="euclidean", 
+                                min.nc=2, max.nc=4, method="ward.D2", index="all"))
+#pre ~ max of 4 clusters at each time point in method, but  in general if you allow
+#More as this argument then more returned a better  optimal cluster number
+fviz_nbclust(NbClust(cluster_2_data %>% select(ends_with(".pre")), distance="euclidean", 
+                                min.nc=2, max.nc=4, method="ward.D2", index="all"))
+#during
+fviz_nbclust(NbClust(cluster_2_data %>% select(ends_with(".blm")), distance="euclidean", 
+                                min.nc=2, max.nc=4, method="ward.D2", index="all"))
+#post
+fviz_nbclust(NbClust(cluster_2_data %>% select(ends_with(".pos")), distance="euclidean", 
+                                min.nc=2, max.nc=4, method="ward.D2", index="all"))
+
+
+#######Subsetting the data down by cluster results in the matrices being singular and therefore the code doesn't
+#run as expected, this could be looked at in detail however, since there are so few data points
+#it is not ideal to have a really sparse cluster set in reality
+
+#Testing
+fviz_nbclust(NbClust(cluster_2_data %>%  filter(cluster == 1) %>% select(ends_with(".pos")), distance="euclidean", 
+                                min.nc=2, max.nc=4, method="ward.D2", index="all"))
+
+cluster_2_data <- cluster_2_data %>%  mutate_all(function(x) ifelse(x == 0, runif(1, 0.00000000001,0.0000001), x))
+
+fviz_nbclust(NbClust(cluster_2_data %>%  filter(cluster == 2) %>% select(ends_with(".blm")), distance="euclidean", 
+                                min.nc=2, max.nc=4, method="ward.D2", index="all"))
+
+fviz_nbclust(NbClust(cluster_2_data %>%  filter(cluster == 2) %>% select(ends_with(".blm")), distance="euclidean", 
+                                min.nc=1, max.nc=3, method="ward.D2", index="all"))
+
+
+a <- matrix(c(0,1,1,0), nrow=2)
+
+#Checks
+fviz_nbclust(cluster_2_data %>% filter(cluster == 2)%>% select(ends_with(".blm")),pam , method = "silhouette")
+
+
+clustered <- agnes(dist(cluster_2_data, method = "euclidian"), 
+                   diss=TRUE, method = "ward")
+# add cluster labels to the training data
+cluster_2_data$cluster <- cutree(clustered, k=3)
+cl2_bloom <- vector(length = 3)
+#so doesn't work with subclusters 2 and 3
+for(i in 1:3){
+  cl2_bloom[i] <- fviz_nbclust(NbClust(cluster_2_data %>% filter(cluster == i)%>% select(ends_with(".blm")), distance="euclidean", 
+                                min.nc=1, max.nc= min(table(cluster_2_data$cluster))
+                                , method="ward.D2", index="all"))
+}
+
+
+fviz_nbclust(NbClust(cluster_2_data , distance="euclidean", 
+                                min.nc=2, max.nc=min(table(cluster_2_data$cluster))
+                     , method="ward.D2", index="all"))
+
+
+hclust(cluster_2_data)
+```
+
+```{r}
+
+
+```

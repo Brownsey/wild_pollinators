@@ -23,13 +23,56 @@ shape_plot <- function(data, x){
   x <- x[[i]]
   
   print(data %>%
-    ggplot() +
-    geom_point(aes_string(x = x[1], y = x[2])))
+    ggplot(aes_string(x = x[1], y = x[2])) +
+    geom_point() +
+    geom_smooth() +
+    theme_bw() +
+    ggtitle(paste0(x[2], " VS ", x[1])))
+}
+
+shape_plot_ylog <- function(data, x){
+  x <- x[[i]]
+  
+  print(data %>%
+    ggplot(aes_string(x = x[1], y = log(x[2]))) +
+    geom_point() +
+    geom_smooth() +
+    theme_bw() +
+    ggtitle(paste0(x[2], " VS ", x[1])))
 }
 
 a <- list(c("apisAb", "wildAbF"), c("region", "solitaryAbF"))
 for(i in 1: length(a)){
   shape_plot(day_data, a)
+}
+
+```
+
+
+```{r}
+shape_plot <- function(data, x , y){
+  print(data %>%
+    ggplot(aes_string(x = x, y = y)) +
+    geom_point() +
+    geom_smooth() +
+    theme_bw() +
+    ggtitle(paste0(x, " VS ", y)))
+}
+
+shape_plot_ylog <- function(data, x){
+  x <- x[[i]]
+  
+  print(data %>%
+    ggplot(aes_string(x = x, y = log(y))) +
+    geom_point() +
+    geom_smooth() +
+    theme_bw() +
+    ggtitle(paste0(y, " VS ", x)))
+}
+
+variables <- names(day_data)[1:7]
+for(i in 1: length(a)){
+  shape_plot(day_data, variables[6], variables[i] )
 }
 
 ```
