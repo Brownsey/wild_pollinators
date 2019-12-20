@@ -549,10 +549,27 @@ markov_data <- data_2012 %>%
   select(ends_with(".pre"), ends_with(".blm"), ends_with(".pos"), orchard) %>%
   unique()
 
+#function to generate the agglomaerative clustering
 aggl <- function(data){
   agnes(dist(data, method = "euclidian"), 
                    diss=TRUE, method = "ward")
 }
+
+#function to reduce copy pasting for each node
+aggl_c <- function(data, ends, c_num){
+    temp <- data %>%
+    filter(cluster == c_num) %>%
+    select(ends_with(ends))
+
+  temp$cluster <- cutree(aggl(temp) , k = 2)
+  
+   data %>% 
+    filter(cluster == c_num) %>%
+    select(-cluster) %>%
+    mutate(cluster = temp$cluster)
+}
+
+aggl_c(aggl_node1, ".blm", 1)
 
 ####Agglomerative heirachicale clustering
 markov_aggl <- list()
@@ -566,26 +583,23 @@ aggl_node1 <- markov_data %>%
   mutate(cluster = temp$cluster)
 
 #during bloom step 1
-  temp <- aggl_node1 %>%
-    filter(cluster == 1) %>%
-    select(ends_with(".blm"))
-
-  temp$cluster <- cutree(aggl(temp) , k = 2)
-  
-  aggl_node2 <- aggl_node1 %>% 
-    filter(cluster == 1) %>%
-    select(-cluster) %>%
-    mutate(cluster = temp$cluster)
+aggl_node2 <- aggl_c(aggl_node1, ".blm", 1)
   
 #during bloom step 2
-  temp <- aggl_node1 %>%
-    filter(cluster == 2) %>%
-    select(ends_with(".blm"))
+aggl_node3 <- aggl_c(aggl_node1, ".blm", 2)
 
-  temp$cluster <- cutree(aggl(temp) , k = 2)
+
+#post bloom step 1
+aggl_node4 <- aggl_c(aggl_node2, ".pos", 1)
   
-  aggl_node3 <- aggl_node1 %>% 
-    filter(cluster == 2) %>%
-    select(-cluster) %>%
-    mutate(cluster = temp$cluster)
+#post bloom step 2
+aggl_node5 <- aggl_c(aggl_node2, ".pos", 2)
+
+#post bloom step 3
+aggl_node6 <- aggl_c(aggl_node3, ".pos", 1)
+  
+#post bloom step 4
+#Need to add error catch if n < 2 as this cant be passed in to a k with 2
+aggl_node7 <- aggl_c(aggl_node3, ".pos", 2)
+
 ```
