@@ -491,8 +491,13 @@ fviz_nbclust(NbClust(cluster_2_data %>%  filter(cluster == 1) %>% select(ends_wi
 
 cluster_2_data <- cluster_2_data %>%  mutate_all(function(x) ifelse(x == 0, runif(1, 0.00000000001,0.0000001), x))
 
-fviz_nbclust(NbClust(cluster_2_data %>%  filter(cluster == 2) %>% select(ends_with(".blm")), distance="euclidean", 
+fviz_nbclust(NbClust(cluster_2_data %>%  filter(cluster == 2) %>% select(ends_with(".pos")), distance="euclidean", 
                                 min.nc=2, max.nc=4, method="ward.D2", index="all"))
+
+bleh <- agnes(dist(cluster_2_data %>%  filter(cluster == 2) %>% select(ends_with(".blm")), method = "euclidian"), 
+                   diss=TRUE, method = "ward")
+
+cluster_2_data$cluster <- cutree(bleh, k=2)
 
 fviz_nbclust(NbClust(cluster_2_data %>%  filter(cluster == 2) %>% select(ends_with(".blm")), distance="euclidean", 
                                 min.nc=1, max.nc=3, method="ward.D2", index="all"))
@@ -525,7 +530,62 @@ fviz_nbclust(NbClust(cluster_2_data , distance="euclidean",
 hclust(cluster_2_data)
 ```
 
+
+
+
+### I guess final code from attempt of using validation..
 ```{r}
 
 
+```
+
+
+### 2 step markov chain I guess
+This section is going cover two step clustering based on various clustering methods for comparison.
+Visit data will be combined into one bee result for each orchard, note in principle this is fundementally flawed as the data does depend on previous years and the assumption that independent of the past is false as pesticide last year affects bee population this year as would be expected. In these scenarios each implementation will have a maximum of 8 clusters. Two after pre-bloom, 4 after and 8 after post bloom.
+```{r}
+
+markov_data <- data_2012 %>%
+  select(ends_with(".pre"), ends_with(".blm"), ends_with(".pos"), orchard) %>%
+  unique()
+
+aggl <- function(data){
+  agnes(dist(data, method = "euclidian"), 
+                   diss=TRUE, method = "ward")
+}
+
+####Agglomerative heirachicale clustering
+markov_aggl <- list()
+#pre-bloom step
+temp <- markov_data %>%
+  select(ends_with(".pre"))
+  
+temp$cluster <- cutree(aggl(temp) , k = 2)
+
+aggl_node1 <- markov_data %>% 
+  mutate(cluster = temp$cluster)
+
+#during bloom step 1
+  temp <- aggl_node1 %>%
+    filter(cluster == 1) %>%
+    select(ends_with(".blm"))
+
+  temp$cluster <- cutree(aggl(temp) , k = 2)
+  
+  aggl_node2 <- aggl_node1 %>% 
+    filter(cluster == 1) %>%
+    select(-cluster) %>%
+    mutate(cluster = temp$cluster)
+  
+#during bloom step 2
+  temp <- aggl_node1 %>%
+    filter(cluster == 2) %>%
+    select(ends_with(".blm"))
+
+  temp$cluster <- cutree(aggl(temp) , k = 2)
+  
+  aggl_node3 <- aggl_node1 %>% 
+    filter(cluster == 2) %>%
+    select(-cluster) %>%
+    mutate(cluster = temp$cluster)
 ```
