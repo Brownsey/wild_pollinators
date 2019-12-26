@@ -9,6 +9,16 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+```{r libraries, results= "hide", message=F, warning=F, echo = FALSE}
+library(tidyverse)
+library(GGally)
+library(gridExtra)
+library(class)
+library(cluster)
+library(clValid)
+library(modeest)
+```
+
 ### 2 step markov chain I guess
 This section is going cover two step clustering based on various clustering methods for comparison.
 Visit data will be combined into one bee result for each orchard, note in principle this is fundementally flawed as the data does depend on previous years and the assumption that independent of the past is false as pesticide last year affects bee population this year as would be expected. In these scenarios each implementation will have a maximum of 8 clusters. Two after pre-bloom, 4 after and 8 after post bloom.
@@ -41,13 +51,15 @@ if(nrow(temp) > 1){
     mutate(cluster = temp$cluster)
    #Else statement for if 1 element in dataset
   }else{
-    output <- temp %>%
-      mutate(cluster == 1)
+    #If only 1 element in the dataset -> set the cluster number to 1
+    output <- data %>% 
+      filter(cluster == c_num) %>%
+      select(-cluster) %>%
+      mutate(cluster = 1)
   }
   output
 }
 
-aggl_c(aggl_node1, ".blm", 1)
 
 ####Agglomerative heirachicale clustering
 #pre-bloom step
@@ -76,11 +88,19 @@ aggl_node5 <- aggl_c(aggl_node2, ".pos", 2)
 aggl_node6 <- aggl_c(aggl_node3, ".pos", 1)
   
 #post bloom step 4
-#Need to add error catch if n < 2 as this cant be passed in to a k with 2
+#Note this node only has 1 element in it so it is automatically set to 1
 aggl_node7 <- aggl_c(aggl_node3, ".pos", 2)
+
+orchard_node_agglom <- tibble(orchard = aggl_node4 %>% filter(cluster == 1) %>% select(orchard) %>% as_vector, node = 8) %>%
+  bind_rows(tibble(orchard = aggl_node4 %>% filter(cluster == 2) %>% select(orchard) %>% as_vector, node = 9 )) %>%
+  bind_rows(tibble(orchard = aggl_node5 %>% filter(cluster == 1) %>% select(orchard) %>% as_vector, node = 10)) %>%
+  bind_rows(tibble(orchard = aggl_node5 %>% filter(cluster == 2) %>% select(orchard) %>% as_vector, node = 11)) %>%
+  bind_rows(tibble(orchard = aggl_node6 %>% filter(cluster == 1) %>% select(orchard) %>% as_vector, node = 12)) %>%
+  bind_rows(tibble(orchard = aggl_node6 %>% filter(cluster == 2) %>% select(orchard) %>% as_vector, node = 13)) %>%
+  bind_rows(tibble(orchard = aggl_node7 %>% filter(cluster == 1) %>% select(orchard) %>% as_vector, node = 14))
 ```
 
-kmeans approach:
+kmeans approach: Even running the 1001 times it is different everytime: store output later on but run it like 1million times at each stage.
 
 ```{r}
 #function to generate the kmeans clustering
@@ -99,12 +119,7 @@ k_clustering <- function(data, n = 1001){
     select(cluster)
 }
 #pre-bloom step
-
-
-
 #Getting the most common clustering 
-a <- k_clustering(markov_data %>% select(-orchard))
-
 
 kmeans_c <- function(data, ends, c_num){
   
@@ -152,18 +167,81 @@ kmeans_node5 <- kmeans_c(kmeans_node2, ".pos", 2)
 kmeans_node6 <- kmeans_c(kmeans_node3, ".pos", 1)
   
 #post bloom step 4
-#Need to add error catch if n < 2 as this cant be passed in to a k with 2
 kmeans_node7 <- kmeans_c(kmeans_node3, ".pos", 2)
+
+orchard_node_kmeans <- tibble(orchard = kmeans_node4 %>% filter(cluster == 1) %>% select(orchard) %>% as_vector, node = 8) %>%
+  bind_rows(tibble(orchard = kmeans_node4 %>% filter(cluster == 2) %>% select(orchard) %>% as_vector, node = 9 )) %>%
+  bind_rows(tibble(orchard = kmeans_node5 %>% filter(cluster == 1) %>% select(orchard) %>% as_vector, node = 10)) %>%
+  bind_rows(tibble(orchard = kmeans_node5 %>% filter(cluster == 2) %>% select(orchard) %>% as_vector, node = 11)) %>%
+  bind_rows(tibble(orchard = kmeans_node6 %>% filter(cluster == 1) %>% select(orchard) %>% as_vector, node = 12)) %>%
+  bind_rows(tibble(orchard = kmeans_node6 %>% filter(cluster == 2) %>% select(orchard) %>% as_vector, node = 13)) %>%                  bind_rows(tibble(orchard = kmeans_node7 %>% filter(cluster == 1) %>% select(orchard) %>% as_vector, node = 14)) %>%
+  bind_rows(tibble(orchard = kmeans_node7 %>% filter(cluster == 2) %>% select(orchard) %>% as_vector, node = 15))
 ```
 
-## Clustering Summarising
+Just a look at the difference in the final clusters between the two methods
+```{r}
+clusterings <- orchard_node_agglom %>%
+  arrange(orchard) %>%
+  bind_cols(node_km = orchard_node_kmeans %>% arrange(orchard) %>%
+              select(node) %>% as_vector)
+clusterings
 
+```
+
+## Updating the bee values to match the environments
+In this particular analysis, the interest is in the affects of pesticides on bee population. As such, it is necessary to correct, as best we can, for extra factors (confounding?) to make the bee values representative.
+
+All these graphs were plotted as part of EDA by the use of lapply to the a basic plotting function. Here the relationships between some of the main extra factors (are they confounding?) will be examined.
+
+##### Temperature
+It is known that temperature affects the speed at which bees fly, as such this will have an effect on bee abundance and possibly richness although more bees might not necessarily mean more species are observed. From the previous analysis carried out it is known that a log(x) + 1 transposition of bee count allows for a "better" model fit and as such in general this will the case for our observations.
+```{r}
+##agglom
+wild_bee_abundance_agglom <- data_2012 %>%
+  inner_join(orchard_node_agglom) %>%
+  ggplot(aes(x = temp, y = log(wildAbF + 1))) +
+  geom_point(aes(colour = as_factor(node))) +
+  geom_smooth() +
+  geom_smooth(method = "lm", colour = "red") +
+  labs(x = "Temperature", y = "Wild Bee Abundance (log(x) + 1)",
+       title = "Wild Bee Abundance Coloured by Agglomerature Nodes",
+       colour = "Agglomerative clustering nodes") +
+  theme_bw() 
+wild_bee_abundance_agglom  
+
+##kmeans
+wild_bee_abundance_kmeans <- data_2012 %>%
+  inner_join(orchard_node_kmeans) %>%
+  ggplot(aes(x = temp, y = log(wildAbF + 1))) +
+  geom_point(aes(colour = as_factor(node))) +
+  geom_smooth() +
+  geom_smooth(method = "lm", colour = "red") +
+  labs(x = "Temperature", y = "Wild Bee Abundance (log(x) + 1)",
+       title = "Wild Bee Abundance Coloured by Kmeans Nodes",
+       colour = "Kmeans clustering nodes") +
+  theme_bw() 
+wild_bee_abundance_kmeans  
+  
+
+```
+
+##### X2000nat
+Based on previous research undertaken in the white paper it is known that the X2000nat variable has an effect on the the bee count so it also necessary to adjust for this. Again the value will be adjust as though the X200nat variable is constant. In this case X will be chosen as the constant value.
+
+
+```{r}
+
+
+
+```
+
+
+
+## Clustering Summarising
 ```{r}
 get_name <- function(x) {
   deparse(substitute(x))
 }
-
-
 
 bee_values <- data_2012 %>%
   group_by(orchard) %>%
@@ -171,8 +249,6 @@ bee_values <- data_2012 %>%
             mean_wild_ab = mean(wildAbF),
             mean_wild_rich = mean(wildRichF)
             )
-
-
 
 clusterise <- function(cluster_data, v_name = deparse(substitute(cluster_data))){
   inner_join(bee_values, cluster_data) %>%
@@ -189,7 +265,38 @@ agglom_bees <- clusterise(aggl_node1) %>%
   bind_rows(clusterise(aggl_node5)) %>%
   bind_rows(clusterise(aggl_node6)) %>%
   bind_rows(clusterise(aggl_node7)) %>%
-  bind_rows(clusterise(aggl_node2)) %>%
+  bind_rows(clusterise(aggl_node4 %>% filter(cluster == 1), "agglom_node8")) %>%
+  bind_rows(clusterise(aggl_node4 %>% filter(cluster == 2), "agglom_node9")) %>%
+  bind_rows(clusterise(aggl_node5 %>% filter(cluster == 1), "agglom_node10")) %>%
+  bind_rows(clusterise(aggl_node5 %>% filter(cluster == 2), "agglom_node11")) %>%
+  bind_rows(clusterise(aggl_node6 %>% filter(cluster == 1), "agglom_node12")) %>%
+  bind_rows(clusterise(aggl_node6 %>% filter(cluster == 2), "agglom_node13")) %>%
+  #Only 1 result for cluster as none in the latter cluster
+  #Unable to to bind as no common variables for an empty node15
+  bind_rows(clusterise(aggl_node7 %>% filter(cluster == 1), "agglom_node14")) 
 
+
+kmeans_bees <- clusterise(kmeans_node1) %>%
+  bind_rows(clusterise(kmeans_node2)) %>%
+  bind_rows(clusterise(kmeans_node3)) %>%
+  bind_rows(clusterise(kmeans_node4)) %>%
+  bind_rows(clusterise(kmeans_node5)) %>%
+  bind_rows(clusterise(kmeans_node6)) %>%
+  bind_rows(clusterise(kmeans_node7)) %>%
+  bind_rows(clusterise(kmeans_node4 %>% filter(cluster == 1), "kmeans_node8")) %>%
+  bind_rows(clusterise(kmeans_node4 %>% filter(cluster == 2), "kmeans_node9")) %>%
+  bind_rows(clusterise(kmeans_node5 %>% filter(cluster == 1), "kmeans_node10")) %>%
+  bind_rows(clusterise(kmeans_node5 %>% filter(cluster == 2), "kmeans_node11")) %>%
+  bind_rows(clusterise(kmeans_node6 %>% filter(cluster == 1), "kmeans_node12")) %>%
+  bind_rows(clusterise(kmeans_node6 %>% filter(cluster == 2), "kmeans_node13")) %>%
+  bind_rows(clusterise(kmeans_node7 %>% filter(cluster == 1), "kmeans_node14")) %>%
+  bind_rows(clusterise(kmeans_node7 %>% filter(cluster == 2), "kmeans_node15"))
+
+
+#This node not there as no results for it
+# %>%
+#   bind_rows(clusterise(aggl_node7) %>% filter(cluster == 1)) %>%
+#   
+#   bind_rows(clusterise(aggl_node7) %>% filter(cluster == 2)) 
 
 ```

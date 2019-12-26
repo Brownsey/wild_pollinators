@@ -179,7 +179,6 @@ bloom_plot <- group_day_data  %>%
 bloom_plot
 
 
-
 bloom_plot_2012 <- group_day_data  %>%
   ggplot(aes(x= orchard, y = bloom.index, colour = group, shape = group)) +
   geom_point()+
@@ -250,7 +249,7 @@ lapply(l, hist_plot)
 ex1 <- density_plot("eiqB11I.pos")
 ex2 <- hist_plot("eiqB11I.blm")
 
-a <- grid.arrange(temperature_plot, honey_temp, ex1,ex2, nrow = 2)
+#a <- grid.arrange(temperature_plot, honey_temp, ex1,ex2, nrow = 2)
 ``` 
 Looking at kmeans for clustering of orchards to decide on decision model.
 
