@@ -283,17 +283,48 @@ adjusted_data <- adjusted_data %>%
   mutate(adjusted_bees = ((mean_x2000 - X2000nat) * X2000_factor) + adjusted_bees)
 
 ```
-So if you look at them individually, it can only be adjusted for one. So need to combine a linear model of all *affecting* factors to best adjust at the end.
+So if you look at them individually, it can only be adjusted for one. So need to combine a linear model of all *affecting* factors to best adjust at the end. 
 
-## Clustering Summarising
-Functions:
-
-
+## Analysising other potential confounders
+This section will look at finding other parameters to include in the bee variable, dataset used at this point is the original just with the bee variable considered going through a log(x + 1) transformation.
+##### Local Diversity
+The aim here is to whether adding local diversity as a adjustment factor is going to be beneficial or not. This will be achieved by running a F test to see whether the variances are equal, a shapiro test to confirm the bee data can be assumed to be normal. Note, independence assumption is not validated, this is due more than 1 result being used from each orchard, I decided to include these as I thought the extra power gained from twice the observations was worth the penalty of this assumption.
 ```{r}
+logged_data <- data_2012 %>%
+  inner_join(clusterings) %>%
+  mutate(adjusted_bees = (((20 - temp) * temp_factor) + log(wildAbF + 1)))
+
+#Testing underlying normal data assumption, again demonstrating why the transformation is neccessary:
+#Not normal
+shapiro.test(logged_data$wildAbF)
+#After transformation -> normal
+shapiro.test(logged_data$adjusted_bees)
+#Checking if the two subsets have the same variance have the same variance
+#Outcome shows that they can be assumed to have the same variance as p.value > 0,05
+simple <- logged_data %>% filter(local.diversity == 0) %>% select(wildAbF) %>% as_vector()
+diverse <- logged_data %>% filter(local.diversity == 1) %>% select(wildAbF) %>% as_vector()
+tidy(var.test(simple, diverse)) %>%
+  select(statistic, p.value)
+#Performing a two sample t-test on the data to see whether they are the same.
+tidy(t.test(wildAbF ~ local.diversity, logged_data, var.equal = TRUE))
+#Since H0: Means the same, H1: means are different ~ p.value not significant
+#This implies local.diversity does NOT have an effect on the bee counts.
+
+
+
+
+
+
+```
+## Clustering Summarising
+Functions involved with summarising the clusters:
+```{r}
+#Gets the name of a variable as a string ~ now implemented in clusterise but keeping
 get_name <- function(x) {
   deparse(substitute(x))
 }
 
+#Gets the bee variables that I am summarising for each cluster - makes it easy to change in future
 clusterise <- function(bee_data, cluster_data, v_name = deparse(substitute(cluster_data))){
   inner_join(bee_data, cluster_data) %>%
     summarise(mean_honey_ab = mean(mean_honey_ab),
@@ -302,6 +333,7 @@ clusterise <- function(bee_data, cluster_data, v_name = deparse(substitute(clust
     mutate(cluster = v_name)
 }
 
+#The function to output the summaries of both agglom and kmeans clustering
 cluster_summarise <- function(bee_data){
 output <- list()
   
