@@ -17,6 +17,7 @@ library(class)
 library(cluster)
 library(clValid)
 library(modeest)
+library(broom)
 ```
 
 ### 2 step markov chain I guess
@@ -221,28 +222,131 @@ wild_bee_abundance_kmeans <- data_2012 %>%
        colour = "Kmeans clustering nodes") +
   theme_bw() 
 wild_bee_abundance_kmeans  
-  
+
+##Linear model
+lm_temp <- lm(log(data_2012$wildAbF + 1) ~  data_2012$temp)
+temp_factor <- tidy(lm_temp) %>%
+  slice(2) %>%
+  select(estimate) %>%
+  as_vector()
+
+#Adjusting bee value as though temp is always 20
+adjusted_data <- data_2012 %>%
+  inner_join(clusterings) %>%
+  mutate(adjusted_bees = (((20 - temp) * temp_factor) + log(wildAbF + 1)))
+
+
+wild_bee_abundance_agglom_adjusted <- adjusted_data %>%
+  ggplot(aes(x = temp, y = adjusted_bees)) +
+  geom_point(aes(colour = as_factor(node))) +
+  geom_smooth() +
+  geom_smooth(method = "lm", colour = "red") +
+  labs(x = "Temperature", y = "Adjusted Wild Bee Abundance (log(x) + 1)",
+       title = "Wild Bee Abundance Coloured by Agglomerature Nodes",
+       colour = "Agglomerative clustering nodes") +
+  theme_bw() 
+wild_bee_abundance_agglom_adjusted 
 
 ```
 
 ##### X2000nat
-Based on previous research undertaken in the white paper it is known that the X2000nat variable has an effect on the the bee count so it also necessary to adjust for this. Again the value will be adjust as though the X200nat variable is constant. In this case X will be chosen as the constant value.
+Based on previous research undertaken in the white paper it is known that the X2000nat variable has an effect on the the bee count so it also necessary to adjust for this. Wher Again the value will be adjust as though the X2000nat variable is constant. In this case the mean will be chosen as the constant value and the bee count will be adjusted for this in the same way as above. 
 
 
 ```{r}
+wild_bee_abundance_agglom_x2000 <- adjusted_data %>%
+  ggplot(aes(x = X2000nat, y = adjusted_bees)) +
+  geom_point(aes(colour = as_factor(node))) +
+  geom_smooth() +
+  geom_smooth(method = "lm", colour = "red") +
+  labs(x = "X2000nat", y = "Adjusted Wild Bee Abundance (log(x) + 1)",
+       title = "Wild Bee Abundance Coloured by Agglomerature Nodes",
+       colour = "Agglomerative clustering nodes") +
+  theme_bw() 
+wild_bee_abundance_agglom_x2000
+
+#Outcome is 0.388
+mean_x2000 <- adjusted_data %>%
+  summarise(mean_x2000 = mean(X2000nat)) %>%
+  as_vector()
 
 
+lm_X2000nat <- lm(adjusted_data$adjusted_bees ~  adjusted_data$X2000nat)
+X2000_factor <- tidy(lm_X2000nat) %>%
+  slice(2) %>%
+  select(estimate) %>%
+  as_vector()
+
+#Adjusting the data for this variable
+
+adjusted_data <- adjusted_data %>%
+  mutate(adjusted_bees = ((mean_x2000 - X2000nat) * X2000_factor) + adjusted_bees)
 
 ```
-
-
+So if you look at them individually, it can only be adjusted for one. So need to combine a linear model of all *affecting* factors to best adjust at the end.
 
 ## Clustering Summarising
+Functions:
+
+
 ```{r}
 get_name <- function(x) {
   deparse(substitute(x))
 }
 
+clusterise <- function(bee_data, cluster_data, v_name = deparse(substitute(cluster_data))){
+  inner_join(bee_data, cluster_data) %>%
+    summarise(mean_honey_ab = mean(mean_honey_ab),
+              mean_wild_ab = mean(mean_wild_ab),
+              mean_wild_rich = mean(mean_wild_rich)) %>%
+    mutate(cluster = v_name)
+}
+
+cluster_summarise <- function(bee_data){
+output <- list()
+  
+output$agglom_bees <- clusterise(bee_data, aggl_node1) %>%
+  bind_rows(clusterise(bee_data, aggl_node2)) %>%
+  bind_rows(clusterise(bee_data, aggl_node3)) %>%
+  bind_rows(clusterise(bee_data, aggl_node4)) %>%
+  bind_rows(clusterise(bee_data, aggl_node5)) %>%
+  bind_rows(clusterise(bee_data, aggl_node6)) %>%
+  bind_rows(clusterise(bee_data, aggl_node7)) %>%
+  bind_rows(clusterise(bee_data, aggl_node4 %>% filter(cluster == 1), "agglom_node8")) %>%
+  bind_rows(clusterise(bee_data, aggl_node4 %>% filter(cluster == 2), "agglom_node9")) %>%
+  bind_rows(clusterise(bee_data, aggl_node5 %>% filter(cluster == 1), "agglom_node10")) %>%
+  bind_rows(clusterise(bee_data, aggl_node5 %>% filter(cluster == 2), "agglom_node11")) %>%
+  bind_rows(clusterise(bee_data, aggl_node6 %>% filter(cluster == 1), "agglom_node12")) %>%
+  bind_rows(clusterise(bee_data, aggl_node6 %>% filter(cluster == 2), "agglom_node13")) %>%
+  #Only 1 result for cluster as none in the latter cluster
+  #Unable to to bind as no common variables for an empty node15
+  bind_rows(clusterise(bee_data, aggl_node7 %>% filter(cluster == 1), "agglom_node14")) 
+
+
+output$kmeans_bees <- clusterise(bee_data, kmeans_node1) %>%
+  bind_rows(clusterise(bee_data, kmeans_node2)) %>%
+  bind_rows(clusterise(bee_data, kmeans_node3)) %>%
+  bind_rows(clusterise(bee_data, kmeans_node4)) %>%
+  bind_rows(clusterise(bee_data, kmeans_node5)) %>%
+  bind_rows(clusterise(bee_data, kmeans_node6)) %>%
+  bind_rows(clusterise(bee_data, kmeans_node7)) %>%
+  bind_rows(clusterise(bee_data, kmeans_node4 %>% filter(cluster == 1), "kmeans_node8")) %>%
+  bind_rows(clusterise(bee_data, kmeans_node4 %>% filter(cluster == 2), "kmeans_node9")) %>%
+  bind_rows(clusterise(bee_data, kmeans_node5 %>% filter(cluster == 1), "kmeans_node10")) %>%
+  bind_rows(clusterise(bee_data, kmeans_node5 %>% filter(cluster == 2), "kmeans_node11")) %>%
+  bind_rows(clusterise(bee_data, kmeans_node6 %>% filter(cluster == 1), "kmeans_node12")) %>%
+  bind_rows(clusterise(bee_data, kmeans_node6 %>% filter(cluster == 2), "kmeans_node13")) %>%
+  bind_rows(clusterise(bee_data, kmeans_node7 %>% filter(cluster == 1), "kmeans_node14")) %>%
+  bind_rows(clusterise(bee_data, kmeans_node7 %>% filter(cluster == 2), "kmeans_node15"))
+
+#Return a list containing two tibbles one for each type of clustering algorithm
+output
+}
+```
+
+Original summarising without any variable correction
+```{r}
+#original Bee data
 bee_values <- data_2012 %>%
   group_by(orchard) %>%
   summarise(mean_honey_ab = mean(apisAb),
@@ -250,53 +354,11 @@ bee_values <- data_2012 %>%
             mean_wild_rich = mean(wildRichF)
             )
 
-clusterise <- function(cluster_data, v_name = deparse(substitute(cluster_data))){
-  inner_join(bee_values, cluster_data) %>%
-    summarise(mean_honey_ab = mean(mean_honey_ab),
-              mean_wild_ab = mean(mean_wild_ab),
-              mean_wild_rich = mean(mean_wild_rich)) %>%
-    mutate(cluster = v_name)
-}
+original_bee_summary <- cluster_summarise(bee_data = bee_values)
 
-agglom_bees <- clusterise(aggl_node1) %>%
-  bind_rows(clusterise(aggl_node2)) %>%
-  bind_rows(clusterise(aggl_node3)) %>%
-  bind_rows(clusterise(aggl_node4)) %>%
-  bind_rows(clusterise(aggl_node5)) %>%
-  bind_rows(clusterise(aggl_node6)) %>%
-  bind_rows(clusterise(aggl_node7)) %>%
-  bind_rows(clusterise(aggl_node4 %>% filter(cluster == 1), "agglom_node8")) %>%
-  bind_rows(clusterise(aggl_node4 %>% filter(cluster == 2), "agglom_node9")) %>%
-  bind_rows(clusterise(aggl_node5 %>% filter(cluster == 1), "agglom_node10")) %>%
-  bind_rows(clusterise(aggl_node5 %>% filter(cluster == 2), "agglom_node11")) %>%
-  bind_rows(clusterise(aggl_node6 %>% filter(cluster == 1), "agglom_node12")) %>%
-  bind_rows(clusterise(aggl_node6 %>% filter(cluster == 2), "agglom_node13")) %>%
-  #Only 1 result for cluster as none in the latter cluster
-  #Unable to to bind as no common variables for an empty node15
-  bind_rows(clusterise(aggl_node7 %>% filter(cluster == 1), "agglom_node14")) 
+#Agglom
+original_bee_summary$agglom_bees
 
-
-kmeans_bees <- clusterise(kmeans_node1) %>%
-  bind_rows(clusterise(kmeans_node2)) %>%
-  bind_rows(clusterise(kmeans_node3)) %>%
-  bind_rows(clusterise(kmeans_node4)) %>%
-  bind_rows(clusterise(kmeans_node5)) %>%
-  bind_rows(clusterise(kmeans_node6)) %>%
-  bind_rows(clusterise(kmeans_node7)) %>%
-  bind_rows(clusterise(kmeans_node4 %>% filter(cluster == 1), "kmeans_node8")) %>%
-  bind_rows(clusterise(kmeans_node4 %>% filter(cluster == 2), "kmeans_node9")) %>%
-  bind_rows(clusterise(kmeans_node5 %>% filter(cluster == 1), "kmeans_node10")) %>%
-  bind_rows(clusterise(kmeans_node5 %>% filter(cluster == 2), "kmeans_node11")) %>%
-  bind_rows(clusterise(kmeans_node6 %>% filter(cluster == 1), "kmeans_node12")) %>%
-  bind_rows(clusterise(kmeans_node6 %>% filter(cluster == 2), "kmeans_node13")) %>%
-  bind_rows(clusterise(kmeans_node7 %>% filter(cluster == 1), "kmeans_node14")) %>%
-  bind_rows(clusterise(kmeans_node7 %>% filter(cluster == 2), "kmeans_node15"))
-
-
-#This node not there as no results for it
-# %>%
-#   bind_rows(clusterise(aggl_node7) %>% filter(cluster == 1)) %>%
-#   
-#   bind_rows(clusterise(aggl_node7) %>% filter(cluster == 2)) 
-
+#Kmeans
+original_bee_summary$kmeans_bees
 ```
