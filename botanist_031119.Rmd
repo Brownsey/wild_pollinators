@@ -529,16 +529,5 @@ fviz_nbclust(NbClust(cluster_2_data , distance="euclidean",
 
 hclust(cluster_2_data)
 ```
-
-
-
-
-### I guess final code from attempt of using validation..
-```{r}
-
-
-```
-
-
-
+There is just enough data to use this clustering technique at each stage of the clustering process sadly.
 

@@ -20,6 +20,9 @@ library(clValid)
 library(modeest)
 library(broom)
 library(car)
+library(pvclust)
+library(NbClust)
+library(factoextra)
 ```
 
 ### 2 step markov chain I guess
@@ -298,12 +301,12 @@ logged_data <- data_2012 %>%
   inner_join(clusterings) %>%
   mutate(adjusted_bees = (((20 - temp) * temp_factor) + log(wildAbF + 1)))
 
-#When temperature isn't added in then they don't
+#Just logged
 logged_data <- data_2012 %>%
   inner_join(clusterings) %>%
   mutate(adjusted_bees = log(wildAbF + 1))
 
-
+#X2000nat adjustment
 logged_data <- data_2012 %>%
   inner_join(clusterings) %>%
   mutate(adjusted_bees = log(wildAbF + 1))%>%
@@ -399,7 +402,7 @@ summary(anova1)
 Bloom is a continuous variable but for the sakes of deciding whether to include it or not
 
 ### Final Confounders
-Based on the analysis above, the confounders to be taken into account are:
+Based on the analysis above, the confounders that could be taken into account are:
 Region and local diversity based on the statistical tests, temperature and X2000nat based on the literature.
 ```{r}
 #Checking the variables to see if any are heavily correlated (binary/categorical ones won't be)
@@ -409,10 +412,39 @@ cor(logged_data$temp, logged_data$X2000nat)
 f_lm <- lm(adjusted_bees ~ temp + X2000nat + local.diversity + region, data = logged_data)
 #Interesting values here seem to suggest that only significant one is X2000nat
 summary(f_lm)
-
-full_lm_adjusted <- logged_data
 ```
-Notes, from running the adjustments: When you use temperature as an original adjustment, only significant one in the model is X2000nat and when you use X2000nat in the original data only significant one is temp. When you use neither and just apply the linear model on the logged data then both temp and nat are significant -> suggesting that just these two variables would be best to adjust by. This suggest to me that fitting a joint lm using both temp and X2000nat to adjust the data is probably best to avoid overfitting and keep the model as parsimonious as possible.
+
+
+Notes, from running the adjustments: When you use temperature as an original adjustment, only significant one in the model is X2000nat and when you use X2000nat in the original data only significant one is temp. When you use neither and just apply the linear model on the logged data then both temp and nat are significant -> suggesting that just these two variables would be best to adjust by. This suggest to me that fitting a joint lm using both temp and X2000nat to adjust the data is probably best to avoid overfitting and keep the model as parsimonious as possible. Despite region and local.diversity being significant for temp adjustment originally, unlikely to be worth implementing but could be considered to cover model changes section. To take this further, could apply lasso regression on the full dataset to see what that comes up with as tends to have a lower MSE than a standard LM.
+
+```{r}
+#Using the logged_data with no adjustments
+logged_data <- data_2012 %>%
+  inner_join(clusterings) %>%
+  mutate(adjusted_bees = log(wildAbF + 1))
+
+#Defining linear model with temp and X2000nat as factors
+temp_nat_lm <- tidy(lm(adjusted_bees ~ temp + X2000nat, data = logged_data))
+#Extracting temp and nat estimate values
+temp_factor <- temp_nat_lm %>%
+  select(estimate) %>% 
+  slice(2) %>% 
+  as_vector()
+nat_factor <- temp_nat_lm %>% 
+  select(estimate) %>% 
+  slice(3) %>%
+  as_vector()
+
+#Now adjustments shall be made for these two variables:
+#Temperature will be set to 20 degrees
+#X2000 nat will be set to the meean x2000 nat value
+temp_nat_adjusted <- logged_data %>% 
+  mutate(adjusted_bees = (adjusted_bees + ((20 - temp) * temp_factor) + ((mean_x2000 - X2000nat) * X2000_factor) ))
+
+#Checking that after the adjustment they are not significant at all in the model
+tidy(lm(adjusted_bees ~ temp + X2000nat, data = temp_nat_adjusted))
+#As expected now the bee abundance has been adjusted for these two parameters
+```
 
 ## Clustering Summarising
 Functions involved with summarising the clusters:
@@ -475,12 +507,12 @@ output
 ```
 
 Original summarising without any variable correction
-```{r}
+```{r, message = FALSE}
 #original Bee data
-bee_values <- data_2012 %>%
+bee_values <- logged_data %>%
   group_by(orchard) %>%
   summarise(mean_honey_ab = mean(apisAb),
-            mean_wild_ab = mean(wildAbF),
+            mean_wild_ab = mean(adjusted_bees),
             mean_wild_rich = mean(wildRichF)
             )
 
@@ -491,4 +523,97 @@ original_bee_summary$agglom_bees
 
 #Kmeans
 original_bee_summary$kmeans_bees
+```
+After Adjustment:
+```{r, message = FALSE}
+adjusted_bee_values <- temp_nat_adjusted %>%
+  group_by(orchard) %>%
+  summarise(mean_honey_ab = mean(apisAb),
+            mean_wild_ab = mean(adjusted_bees),
+            mean_wild_rich = mean(wildRichF)
+            )
+
+adjusted_bee_summary <- cluster_summarise(bee_data = adjusted_bee_values)
+
+#Agglom
+adjusted_bee_summary$agglom_bees
+
+#Kmeans
+adjusted_bee_summary$kmeans_bees
+```
+Although honey bee abundance is one of the summarised variables, this is likely to be related directly to the hive.acr variable.
+
+Comparing cluster values before and after adjustments, for now just looking at the agglomerative node clustering selection as it is, in my opinion, better than Kmeans.
+```{r}
+##agglom
+adjusted_bee_summary$agglom_bees %>%
+  select(mean_wild_ab, cluster) %>% 
+  rename(adjusted = mean_wild_ab) %>%
+  inner_join(original_bee_summary$agglom_bees %>%
+               select(mean_wild_ab, cluster)) %>%
+  select(cluster,mean_wild_ab, adjusted)
+```
+I guess potentially can see two *paths* one with a mean slightly lower than the other if you think of the structure.
+
+## Non-markov structuring
+This section will approach looking at the data as one time point with 1 clustering point rather than 3 as above.
+```{r}
+whole_cluster <- adjusted_data %>%
+  arrange(orchard) %>%
+  select(ends_with(".pre"),ends_with(".blm"), ends_with(".pos")) %>%
+  filter(row_number() %% 2 == 1)
+  
+#Shows no difference here although from previous work ward method was best
+# matrix of methods to compare
+m <- c( "average", "single", "complete", "ward")
+names(m) <- c( "average", "single", "complete", "ward")
+distances <- c("euclidean", "maximum", "manhattan", "canberra", 
+               "binary", "minkowski")
+names(distances) <- c("euclidean", "maximum", "manhattan", 
+                      "canberra", "binary", "minkowski")
+clust_comps <- matrix(nrow = length(distances), ncol = length(m), 
+                      dimnames = list(distances,m))
+# function to compute coefficient to see which is the best method
+ac <- function(distance, linkage) {
+  dista <- dist(whole_cluster , method = distance)
+  #Agglomerative Nesting form of Hierarchical Clustering
+  agnes(dista, method = linkage)$ac
+}
+for(i in 1:length(distances)) {
+  for(j in 1:length(m)) {
+    clust_comps[i,j] <- ac(distances[i], m[j])
+  }
+}
+
+#In future or in write up, perhaps change, needs more clustering analysis
+#Max of this suggests ward - binary as the best method
+#Look at literature in more detail to see other benefits/drawbacks and assumptions
+#Then decide on actual best method, for now using euclidian as used that before
+clust_comps %>% 
+  View()
+
+#Clusters of whole data combined - 7
+fviz_nbclust(NbClust(whole_cluster, distance = "euclidean", 
+                                min.nc = 2, max.nc = 8, method = "ward.D2", index = "all"))
+
+#Agglomerative clustering 
+clustered <- agnes(dist(whole_cluster, method = "euclidian"), 
+                   diss=TRUE, method = "ward")
+# add cluster labels to the training data
+whole_cluster$cluster <- cutree(clustered, k = 4)
+
+whole_cluster
+
+#Clustering summaries based on non-markov approach
+adjusted_data %>%
+  group_by(orchard) %>%
+  summarise(mean_honey_ab = mean(apisAb),
+            mean_wild_ab = mean(adjusted_bees),
+            mean_wild_rich = mean(wildRichF)) %>% 
+  mutate(cluster = whole_cluster$cluster)  %>%
+  group_by(cluster) %>%
+  summarise(mean_honey_ab = mean(mean_honey_ab),
+            mean_wild_ab = mean(mean_wild_ab),
+            mean_wild_rich = mean(mean_wild_rich))
+
 ```
