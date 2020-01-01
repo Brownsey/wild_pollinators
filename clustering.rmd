@@ -7,6 +7,7 @@ output: pdf_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(warning = FALSE)
 ```
 
 ```{r libraries, results= "hide", message=F, warning=F, echo = FALSE}
@@ -18,6 +19,7 @@ library(cluster)
 library(clValid)
 library(modeest)
 library(broom)
+library(car)
 ```
 
 ### 2 step markov chain I guess
@@ -286,13 +288,27 @@ adjusted_data <- adjusted_data %>%
 So if you look at them individually, it can only be adjusted for one. So need to combine a linear model of all *affecting* factors to best adjust at the end. 
 
 ## Analysising other potential confounders
-This section will look at finding other parameters to include in the bee variable, dataset used at this point is the original just with the bee variable considered going through a log(x + 1) transformation.
-##### Local Diversity
+This section will look at finding other parameters to include in the bee variable, dataset used at this point is the original just with the bee variable considered going through a log(x + 1) transformation. The only bee variable to be considered at this point is the wild bee abundance, in future more could be considered in this way or it would be expected to be similar for all bee variables and I could just use the variables decided upon in this way for all the bee variables considered.
+
+### Local Diversity
 The aim here is to whether adding local diversity as a adjustment factor is going to be beneficial or not. This will be achieved by running a F test to see whether the variances are equal, a shapiro test to confirm the bee data can be assumed to be normal. Note, independence assumption is not validated, this is due more than 1 result being used from each orchard, I decided to include these as I thought the extra power gained from twice the observations was worth the penalty of this assumption.
 ```{r}
+#When adding temperature in other variables have an effect
 logged_data <- data_2012 %>%
   inner_join(clusterings) %>%
   mutate(adjusted_bees = (((20 - temp) * temp_factor) + log(wildAbF + 1)))
+
+#When temperature isn't added in then they don't
+logged_data <- data_2012 %>%
+  inner_join(clusterings) %>%
+  mutate(adjusted_bees = log(wildAbF + 1))
+
+
+logged_data <- data_2012 %>%
+  inner_join(clusterings) %>%
+  mutate(adjusted_bees = log(wildAbF + 1))%>%
+  mutate(adjusted_bees = ((mean_x2000 - X2000nat) * X2000_factor) + adjusted_bees)
+
 
 #Testing underlying normal data assumption, again demonstrating why the transformation is neccessary:
 #Not normal
@@ -301,21 +317,103 @@ shapiro.test(logged_data$wildAbF)
 shapiro.test(logged_data$adjusted_bees)
 #Checking if the two subsets have the same variance have the same variance
 #Outcome shows that they can be assumed to have the same variance as p.value > 0,05
-simple <- logged_data %>% filter(local.diversity == 0) %>% select(wildAbF) %>% as_vector()
-diverse <- logged_data %>% filter(local.diversity == 1) %>% select(wildAbF) %>% as_vector()
+simple <- logged_data %>% filter(local.diversity == 0) %>% select(adjusted_bees) %>% as_vector()
+diverse <- logged_data %>% filter(local.diversity == 1) %>% select(adjusted_bees) %>% as_vector()
 tidy(var.test(simple, diverse)) %>%
   select(statistic, p.value)
 #Performing a two sample t-test on the data to see whether they are the same.
-tidy(t.test(wildAbF ~ local.diversity, logged_data, var.equal = TRUE))
 #Since H0: Means the same, H1: means are different ~ p.value not significant
-#This implies local.diversity does NOT have an effect on the bee counts.
 
+#This implies local.diversity does NOT have an effect on the original bee counts.
+#I thought this was an interesting point and worth noting, same happens with Region.
+tidy(t.test(wildAbF ~ local.diversity, logged_data, var.equal = TRUE))
 
-
-
-
+#However the the adjusted version of bee count does list local diversity
+#as a factor which has an effect on the log transformed bee counts
+tidy(t.test(adjusted_bees ~ local.diversity, logged_data, var.equal = TRUE))
 
 ```
+From This analysis, it can be concluded that local.diversity does NOT play a factor in bee count
+### Region
+Region has 3 possible options - as such an ANOVA test will be used to see whether there is a difference between the means in wild abundance based on region.
+
+```{r}
+#Checking Anova assumption that the variances are the same
+# H0: Variances the same: H1: Atleast one variance is different
+leveneTest(adjusted_bees ~ region, data = logged_data)
+#Since pr > 0.05 we can assume variances are the same
+
+#Running the anova  test
+anova1 <- aov(adjusted_bees ~ region, data = logged_data)
+
+summary(anova1)
+#probablity shows that region is not an affecting factor to  wildAbF
+
+#Checking that the following anova assumption is TRUE:
+#Residuals of the response variable are normally distributed is NOT true
+shapiro.test(residuals(anova1))
+```
+
+### Day
+Looking at the day to see whether that also has an effect, since the data can be paired by day 1 and day 2 a paired t-test will be carried out on this to test whether there is a difference in bee count.
+When using just the X2000nat variable, then it becomes very close to significant.
+
+```{r}
+day_1 <- logged_data %>% filter(day == 1) %>% select(adjusted_bees) %>% as_vector()
+day_2 <- logged_data %>% filter(day == 2) %>% select(adjusted_bees) %>% as_vector()
+#This demonstrates that the variances come from the same distribution:
+tidy(var.test(day_1, day_2)) %>%
+  select(statistic, p.value)
+
+#Hence we can run a paired t-test with equal variances
+tidy(t.test(adjusted_bees ~ day, logged_data, var.equal = TRUE, paired = TRUE))
+#Bit surprising but it demonstrates that there is no statistical significance between days
+#So combining values to start with is probably appropriate
+```
+
+
+### Bloom
+First it shall be graphed to see if there is any obvious correlation.
+```{r}
+logged_data %>%
+  ggplot(aes(x = bloom.index, y = adjusted_bees)) +
+  geom_smooth() +
+  geom_smooth(method = "lm", colour = "red") + 
+  theme_bw() +  
+  geom_point()
+```
+There doesn't seem to be any obvious correlation, but just to be sure I'll split the bloom into thee categories and test these with an Anova test.
+```{r}
+logged_data <- logged_data %>%
+          mutate(bloom_category = if_else(bloom.index <= 33, 1,
+                                  if_else(bloom.index <= 66, 2, 3)))
+
+#Running the anova  test
+anova1 <- aov(adjusted_bees ~ bloom_category, data = logged_data)
+summary(anova1)
+#As expected there is no evidence to suggest that bloom index (category)
+#Has an effect on the bee counts (although only 1 DF in bloom_category thought it should be 2??)
+
+```
+
+Bloom is a continuous variable but for the sakes of deciding whether to include it or not
+
+### Final Confounders
+Based on the analysis above, the confounders to be taken into account are:
+Region and local diversity based on the statistical tests, temperature and X2000nat based on the literature.
+```{r}
+#Checking the variables to see if any are heavily correlated (binary/categorical ones won't be)
+#So checking other two  and we get a low correlation so acceptable to use them together
+cor(logged_data$temp, logged_data$X2000nat)
+
+f_lm <- lm(adjusted_bees ~ temp + X2000nat + local.diversity + region, data = logged_data)
+#Interesting values here seem to suggest that only significant one is X2000nat
+summary(f_lm)
+
+full_lm_adjusted <- logged_data
+```
+Notes, from running the adjustments: When you use temperature as an original adjustment, only significant one in the model is X2000nat and when you use X2000nat in the original data only significant one is temp. When you use neither and just apply the linear model on the logged data then both temp and nat are significant -> suggesting that just these two variables would be best to adjust by. This suggest to me that fitting a joint lm using both temp and X2000nat to adjust the data is probably best to avoid overfitting and keep the model as parsimonious as possible.
+
 ## Clustering Summarising
 Functions involved with summarising the clusters:
 ```{r}
