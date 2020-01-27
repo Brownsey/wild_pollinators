@@ -25,6 +25,23 @@ library(NbClust)
 library(factoextra)
 ```
 
+### Variable justification
+```{r}
+bee_correlations <- data.frame(matrix(0, nrow = 0, ncol = 0))
+
+for(i in 1:7){
+  for(j in 1:7){
+  bee_correlations[i,j] <- round(cor(data_2012[5+i], data_2012[5 + j]), 2)
+  }
+}
+a
+for(i in 1:7){
+ names(bee_correlations)[i] <- colnames(data_2012[5 +i])
+}
+bee_correlations
+```
+This demonstrates that to consider the affects on wild bees, just two variables need to be considered as there is very high correlation between the outcomes. WildAbF accounts a .9+ correlation with all wild variables except for the for the solitary bee variable. Then for  this SocialRichF could be used.
+
 ### 2 step markov chain I guess
 This section is going cover two step clustering based on various clustering methods for comparison.
 Visit data will be combined into one bee result for each orchard, note in principle this is fundementally flawed as the data does depend on previous years and the assumption that independent of the past is false as pesticide last year affects bee population this year as would be expected. In these scenarios each implementation will have a maximum of 8 clusters. Two after pre-bloom, 4 after and 8 after post bloom.
@@ -175,6 +192,7 @@ kmeans_node6 <- kmeans_c(kmeans_node3, ".pos", 1)
 #post bloom step 4
 kmeans_node7 <- kmeans_c(kmeans_node3, ".pos", 2)
 
+#End timepoint nodes
 orchard_node_kmeans <- tibble(orchard = kmeans_node4 %>% filter(cluster == 1) %>% select(orchard) %>% as_vector, node = 8) %>%
   bind_rows(tibble(orchard = kmeans_node4 %>% filter(cluster == 2) %>% select(orchard) %>% as_vector, node = 9 )) %>%
   bind_rows(tibble(orchard = kmeans_node5 %>% filter(cluster == 1) %>% select(orchard) %>% as_vector, node = 10)) %>%
@@ -193,6 +211,79 @@ clusterings <- orchard_node_agglom %>%
 clusterings
 
 ```
+
+
+
+
+
+## Non-markov structuring
+This section will approach looking at the data as one time point with 1 clustering point rather than 3 as above.
+```{r}
+whole_cluster <- adjusted_data %>%
+  arrange(orchard) %>%
+  select(ends_with(".pre"),ends_with(".blm"), ends_with(".pos")) %>%
+  filter(row_number() %% 2 == 1)
+  
+#Shows no difference here although from previous work ward method was best
+# matrix of methods to compare
+m <- c( "average", "single", "complete", "ward")
+names(m) <- c( "average", "single", "complete", "ward")
+distances <- c("euclidean", "maximum", "manhattan", "canberra", 
+               "binary", "minkowski")
+names(distances) <- c("euclidean", "maximum", "manhattan", 
+                      "canberra", "binary", "minkowski")
+clust_comps <- matrix(nrow = length(distances), ncol = length(m), 
+                      dimnames = list(distances,m))
+# function to compute coefficient to see which is the best method
+ac <- function(distance, linkage) {
+  dista <- dist(whole_cluster , method = distance)
+  #Agglomerative Nesting form of Hierarchical Clustering
+  agnes(dista, method = linkage)$ac
+}
+for(i in 1:length(distances)) {
+  for(j in 1:length(m)) {
+    clust_comps[i,j] <- ac(distances[i], m[j])
+  }
+}
+
+#In future or in write up, perhaps change, needs more clustering analysis
+#Max of this suggests ward - binary as the best method
+#Look at literature in more detail to see other benefits/drawbacks and assumptions
+#Then decide on actual best method, for now using euclidian as used that before
+clust_comps %>% 
+  View()
+
+#Clusters of whole data combined - 7
+fviz_nbclust(NbClust(whole_cluster, distance = "euclidean", 
+                                min.nc = 2, max.nc = 8, method = "ward.D2", index = "all"))
+
+#Agglomerative clustering 
+clustered <- agnes(dist(whole_cluster, method = "euclidian"), 
+                   diss=TRUE, method = "ward")
+# add cluster labels to the training data
+whole_cluster$cluster <- cutree(clustered, k = 4)
+
+whole_cluster
+
+#Clustering summaries based on non-markov approach
+non_markov_clusters <- adjusted_data %>%
+  group_by(orchard) %>%
+  summarise(mean_honey_ab = mean(apisAb),
+            mean_wild_ab = mean(adjusted_bees),
+            mean_wild_rich = mean(wildRichF)) %>% 
+  mutate(cluster = whole_cluster$cluster)  %>%
+  group_by(cluster) %>%
+  summarise(mean_honey_ab = mean(mean_honey_ab),
+            mean_wild_ab = mean(mean_wild_ab),
+            mean_wild_rich = mean(mean_wild_rich))
+```
+
+
+
+
+
+
+
 
 ## Updating the bee values to match the environments
 In this particular analysis, the interest is in the affects of pesticides on bee population. As such, it is necessary to correct, as best we can, for extra factors (confounding?) to make the bee values representative.
@@ -421,7 +512,8 @@ Notes, from running the adjustments: When you use temperature as an original adj
 #Using the logged_data with no adjustments
 logged_data <- data_2012 %>%
   inner_join(clusterings) %>%
-  mutate(adjusted_bees = log(wildAbF + 1))
+  mutate(adjusted_bees = log(wildAbF + 1)) %>%
+  mutate(adjusted_social = log(socialRichF + 1))
 
 #Defining linear model with temp and X2000nat as factors
 temp_nat_lm <- tidy(lm(adjusted_bees ~ temp + X2000nat, data = logged_data))
@@ -445,6 +537,26 @@ temp_nat_adjusted <- logged_data %>%
 tidy(lm(adjusted_bees ~ temp + X2000nat, data = temp_nat_adjusted))
 #As expected now the bee abundance has been adjusted for these two parameters
 ```
+The same process can be applied to the variable SocialRichF, the other bee variable which needs to be considered.
+Since we know that only temp and nat were statistic on the wildAbF we can go straight to the LM and test that (May need to check this with Julia, if not just cp previous analsysis...)
+
+
+```{r}
+#Looking at the model ~ only X2000nat significant
+lm(adjusted_social ~ temp + X2000nat + local.diversity + region, data = logged_data) %>%
+  summary
+social_lm<- tidy(lm(adjusted_social ~ X2000nat, data = logged_data))
+
+social_nat_factor <- social_lm %>% 
+  select(estimate) %>% 
+  slice(2) %>%
+  as_vector()
+
+#Adjustment for social added
+temp_nat_adjusted <- temp_nat_adjusted %>%
+  mutate(adjusted_social = (adjusted_social + ((mean_x2000 - X2000nat) * X2000_factor)))
+
+```
 
 ## Clustering Summarising
 Functions involved with summarising the clusters:
@@ -459,7 +571,7 @@ clusterise <- function(bee_data, cluster_data, v_name = deparse(substitute(clust
   inner_join(bee_data, cluster_data) %>%
     summarise(mean_honey_ab = mean(mean_honey_ab),
               mean_wild_ab = mean(mean_wild_ab),
-              mean_wild_rich = mean(mean_wild_rich)) %>%
+              mean_social_rich = mean(mean_social_rich)) %>%
     mutate(cluster = v_name)
 }
 
@@ -508,12 +620,12 @@ output
 
 Original summarising without any variable correction
 ```{r, message = FALSE}
-#original Bee data
+#original Bee data (logged has no changes to it)
 bee_values <- logged_data %>%
   group_by(orchard) %>%
   summarise(mean_honey_ab = mean(apisAb),
             mean_wild_ab = mean(adjusted_bees),
-            mean_wild_rich = mean(wildRichF)
+            mean_social_rich = mean(adjusted_social)
             )
 
 original_bee_summary <- cluster_summarise(bee_data = bee_values)
@@ -523,6 +635,21 @@ original_bee_summary$agglom_bees
 
 #Kmeans
 original_bee_summary$kmeans_bees
+
+##Original summarising of non-markov approach
+whole_cluster
+
+#Clustering summaries based on non-markov approach
+non_markov_clusters <-  logged_data %>%
+  group_by(orchard) %>%
+  summarise(mean_honey_ab = mean(apisAb),
+            mean_wild_ab = mean(adjusted_bees),
+            mean_social_rich = mean(adjusted_social)) %>% 
+  mutate(cluster = whole_cluster$cluster)  %>%
+  group_by(cluster) %>%
+  summarise(mean_honey_ab = mean(mean_honey_ab),
+            mean_wild_ab = mean(mean_wild_ab),
+            mean_social_rich = mean(mean_social_rich))
 ```
 After Adjustment:
 ```{r, message = FALSE}
@@ -530,7 +657,7 @@ adjusted_bee_values <- temp_nat_adjusted %>%
   group_by(orchard) %>%
   summarise(mean_honey_ab = mean(apisAb),
             mean_wild_ab = mean(adjusted_bees),
-            mean_wild_rich = mean(wildRichF)
+            mean_social_rich = mean(adjusted_social)
             )
 
 adjusted_bee_summary <- cluster_summarise(bee_data = adjusted_bee_values)
@@ -540,6 +667,21 @@ adjusted_bee_summary$agglom_bees
 
 #Kmeans
 adjusted_bee_summary$kmeans_bees
+
+
+##Non-Markov
+
+#Clustering summaries based on non-markov approach
+non_markov_clusters <-  temp_nat_adjusted %>%
+  group_by(orchard) %>%
+  summarise(mean_honey_ab = mean(apisAb),
+            mean_wild_ab = mean(adjusted_bees),
+            mean_social_rich = mean(adjusted_social)) %>% 
+  mutate(cluster = whole_cluster$cluster)  %>%
+  group_by(cluster) %>%
+  summarise(mean_honey_ab = mean(mean_honey_ab),
+            mean_wild_ab = mean(mean_wild_ab),
+            mean_social_rich = mean(mean_social_rich))
 ```
 Although honey bee abundance is one of the summarised variables, this is likely to be related directly to the hive.acr variable.
 
@@ -555,65 +697,5 @@ adjusted_bee_summary$agglom_bees %>%
 ```
 I guess potentially can see two *paths* one with a mean slightly lower than the other if you think of the structure.
 
-## Non-markov structuring
-This section will approach looking at the data as one time point with 1 clustering point rather than 3 as above.
-```{r}
-whole_cluster <- adjusted_data %>%
-  arrange(orchard) %>%
-  select(ends_with(".pre"),ends_with(".blm"), ends_with(".pos")) %>%
-  filter(row_number() %% 2 == 1)
-  
-#Shows no difference here although from previous work ward method was best
-# matrix of methods to compare
-m <- c( "average", "single", "complete", "ward")
-names(m) <- c( "average", "single", "complete", "ward")
-distances <- c("euclidean", "maximum", "manhattan", "canberra", 
-               "binary", "minkowski")
-names(distances) <- c("euclidean", "maximum", "manhattan", 
-                      "canberra", "binary", "minkowski")
-clust_comps <- matrix(nrow = length(distances), ncol = length(m), 
-                      dimnames = list(distances,m))
-# function to compute coefficient to see which is the best method
-ac <- function(distance, linkage) {
-  dista <- dist(whole_cluster , method = distance)
-  #Agglomerative Nesting form of Hierarchical Clustering
-  agnes(dista, method = linkage)$ac
-}
-for(i in 1:length(distances)) {
-  for(j in 1:length(m)) {
-    clust_comps[i,j] <- ac(distances[i], m[j])
-  }
-}
 
-#In future or in write up, perhaps change, needs more clustering analysis
-#Max of this suggests ward - binary as the best method
-#Look at literature in more detail to see other benefits/drawbacks and assumptions
-#Then decide on actual best method, for now using euclidian as used that before
-clust_comps %>% 
-  View()
-
-#Clusters of whole data combined - 7
-fviz_nbclust(NbClust(whole_cluster, distance = "euclidean", 
-                                min.nc = 2, max.nc = 8, method = "ward.D2", index = "all"))
-
-#Agglomerative clustering 
-clustered <- agnes(dist(whole_cluster, method = "euclidian"), 
-                   diss=TRUE, method = "ward")
-# add cluster labels to the training data
-whole_cluster$cluster <- cutree(clustered, k = 4)
-
-whole_cluster
-
-#Clustering summaries based on non-markov approach
-adjusted_data %>%
-  group_by(orchard) %>%
-  summarise(mean_honey_ab = mean(apisAb),
-            mean_wild_ab = mean(adjusted_bees),
-            mean_wild_rich = mean(wildRichF)) %>% 
-  mutate(cluster = whole_cluster$cluster)  %>%
-  group_by(cluster) %>%
-  summarise(mean_honey_ab = mean(mean_honey_ab),
-            mean_wild_ab = mean(mean_wild_ab),
-            mean_wild_rich = mean(mean_wild_rich))
-
-```
+### Looking at clusters
