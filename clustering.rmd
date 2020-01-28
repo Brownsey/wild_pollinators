@@ -700,7 +700,7 @@ I guess potentially can see two *paths* one with a mean slightly lower than the 
 
 
 ### Looking at clusters
-The aim of this section is to look at the clusterings from a 
+The aim of this section is to look at the clusterings from a low, medium, high point of view...
 
 ```{r}
 #Non_markov clustering summary
@@ -708,6 +708,11 @@ whole_cluster %>%
   group_by(cluster) %>%
   summarise_all(funs(mean)) %>%
   inner_join(non_markov_clusters)
+
+#Cluster 1 -> Low insecticide, High Fungicide, low thinner
+#Cluster 2 -> High insecticide, Low Fungicide, low (no) thinner
+#Cluster 3 -> middle insecticide, High Fungicide,  low thinner
+#Cluster 4 -> Low insecticide, High Fungicide, High thinner
 
 ##Agglom clustering summary (end stage)
 
@@ -727,9 +732,18 @@ pesticide_summary_agglom <- aggl_c(aggl_node2, ".pos", 1)  %>%
   group_by(cluster) %>%
   summarise_all(funs(mean))
 
+
+##
 bee_summary_agglom %>% 
   inner_join(pesticide_summary_agglom) %>%
   select(-orchard)
+#HLH
+#HHL
+#HHL
+#HLH
+#LLL
+#LHH
+#LLL
 
 
 
