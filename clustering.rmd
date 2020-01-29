@@ -25,22 +25,7 @@ library(NbClust)
 library(factoextra)
 ```
 
-### Variable justification
-```{r}
-bee_correlations <- data.frame(matrix(0, nrow = 0, ncol = 0))
 
-for(i in 1:7){
-  for(j in 1:7){
-  bee_correlations[i,j] <- round(cor(data_2012[5+i], data_2012[5 + j]), 2)
-  }
-}
-a
-for(i in 1:7){
- names(bee_correlations)[i] <- colnames(data_2012[5 +i])
-}
-bee_correlations
-```
-This demonstrates that to consider the affects on wild bees, just two variables need to be considered as there is very high correlation between the outcomes. WildAbF accounts a .9+ correlation with all wild variables except for the for the solitary bee variable. Then for  this SocialRichF could be used.
 
 ### 2 step markov chain I guess
 This section is going cover two step clustering based on various clustering methods for comparison.
@@ -281,7 +266,22 @@ non_markov_clusters <- adjusted_data %>%
 
 
 
+### Variable justification
+```{r}
+bee_correlations <- data.frame(matrix(0, nrow = 0, ncol = 0))
 
+for(i in 1:7){
+  for(j in 1:7){
+  bee_correlations[i,j] <- round(cor(data_2012[5+i], data_2012[5 + j]), 2)
+  }
+}
+a
+for(i in 1:7){
+ names(bee_correlations)[i] <- colnames(data_2012[5 +i])
+}
+bee_correlations
+```
+This demonstrates that to consider the affects on wild bees, just two variables need to be considered as there is very high correlation between the outcomes. WildAbF accounts a .9+ correlation with all wild variables except for the for the solitary bee variable. Then for  this SocialRichF could be used.
 
 
 

@@ -531,3 +531,21 @@ hclust(cluster_2_data)
 ```
 There is just enough data to use this clustering technique at each stage of the clustering process sadly.
 
+
+
+### Variable justification
+```{r}
+bee_correlations <- data.frame(matrix(0, nrow = 0, ncol = 0))
+
+for(i in 1:7){
+  for(j in 1:7){
+  bee_correlations[i,j] <- round(cor(data_2012[5+i], data_2012[5 + j]), 2)
+  }
+}
+a
+for(i in 1:7){
+ names(bee_correlations)[i] <- colnames(data_2012[5 +i])
+}
+bee_correlations
+```
+
