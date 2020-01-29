@@ -1,11 +1,11 @@
 library(shiny)
-library(ggplot2)
+library(tidyverse)
 
-dt <- data.frame(x=runif(1000), y=runif(1000))
+data <- read_csv("agglom_summary.csv")
 
 
 
-ui <-  fluidPage(titlePanel("Brownsey's Gantt Creator"),
+ui <-  fluidPage(titlePanel("Qualitive Bees Shiny App"),
   
   fluidRow(
     
@@ -14,10 +14,10 @@ ui <-  fluidPage(titlePanel("Brownsey's Gantt Creator"),
            selectInput("pesticide", "Pesticide Level:",
                        c("Low" = "low",
                          "High" = "high")),
-    selectInput("insecticide", "Insecticide Level:",
+           selectInput("insecticide", "Insecticide Level:",
                 c("Low" = "low",
                   "High" = "high")),
-  selectInput("thinner", "Thinner Level:",
+           selectInput("thinner", "Thinner Level:",
               c("Low" = "low",
                 "High" = "high")),
            actionButton("refresh","Refresh Plot:")
@@ -33,12 +33,25 @@ ui <-  fluidPage(titlePanel("Brownsey's Gantt Creator"),
 )
 
 server <- function(input, output) {
-
   
-  
+  # pp <- eventReactive(c(input$refresh),{
+  #   pesticide <- input$pesticide
+  #   insecticide <- input$insecticide
+  #   thinner <- input$thinner
+  #   
+  #   subset_data <- data %>%
+  #     filter(pest_rating == pesticide) %>%
+  #     filter(insect_rating == insecticide) #%>%
+  #     #filter(thinner_rating == thinner)
+  #   
+  #   
+  #   ggplot(subset_data, aes(x,y)) + 
+  #     geom_bar()
+  # })
   pp <- eventReactive(c(input$refresh),{
-    ggplot(dt, aes(x,y)) + 
-      geom_point()
+    ggplot(mtcars) +
+    geom_point(aes(x = wt, y = mpg))
+    
   })
   
   output$plot <- renderPlot({

@@ -734,9 +734,18 @@ pesticide_summary_agglom <- aggl_c(aggl_node2, ".pos", 1)  %>%
 
 
 ##
-bee_summary_agglom %>% 
+agglom_summary <- bee_summary_agglom %>% 
   inner_join(pesticide_summary_agglom) %>%
-  select(-orchard)
+  select(-orchard) %>%
+  #1 for high, 0 for low, just using bloom
+  mutate(pest_rating = c(0,0,1,1,0,0,1)) %>%
+  mutate(insect_rating = c(1,0,1,0,0,1,1)) %>%
+  mutate(thinner_rating = c(1,0,0,1,0,1,0))
+
+
+#write.csv(agglom_summary, "agglom_summary.csv")
+
+#Overall
 #HLH
 #HHL
 #HHL
@@ -744,6 +753,17 @@ bee_summary_agglom %>%
 #LLL
 #LHH
 #LLL
+
+#Just Bloom
+#LHH
+#LLL
+#HHL
+#HLH
+#LLL
+#LHH
+#HHL
+
+##Just bloom and just fungicide and insecticide
 
 
 
