@@ -204,7 +204,7 @@ clusterings
 ## Non-markov structuring
 This section will approach looking at the data as one time point with 1 clustering point rather than 3 as above.
 ```{r}
-whole_cluster <- adjusted_data %>%
+whole_cluster <- data_2012 %>%
   arrange(orchard) %>%
   select(ends_with(".pre"),ends_with(".blm"), ends_with(".pos")) %>%
   filter(row_number() %% 2 == 1)
@@ -250,11 +250,11 @@ whole_cluster$cluster <- cutree(clustered, k = 4)
 
 whole_cluster
 
-#Clustering summaries based on non-markov approach
-non_markov_clusters <- adjusted_data %>%
+#Clustering summaries based on non-markov approach (Before Adjustment)
+non_markov_clusters <- data_2012 %>%
   group_by(orchard) %>%
   summarise(mean_honey_ab = mean(apisAb),
-            mean_wild_ab = mean(adjusted_bees),
+            mean_wild_ab = mean(wildAbF),
             mean_wild_rich = mean(wildRichF)) %>% 
   mutate(cluster = whole_cluster$cluster)  %>%
   group_by(cluster) %>%
@@ -275,7 +275,6 @@ for(i in 1:7){
   bee_correlations[i,j] <- round(cor(data_2012[5+i], data_2012[5 + j]), 2)
   }
 }
-a
 for(i in 1:7){
  names(bee_correlations)[i] <- colnames(data_2012[5 +i])
 }
