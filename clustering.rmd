@@ -263,9 +263,6 @@ non_markov_clusters <- data_2012 %>%
             mean_wild_rich = mean(mean_wild_rich))
 ```
 
-
-
-
 ### Variable justification
 ```{r}
 bee_correlations <- data.frame(matrix(0, nrow = 0, ncol = 0))
@@ -281,8 +278,6 @@ for(i in 1:7){
 bee_correlations
 ```
 This demonstrates that to consider the affects on wild bees, just two variables need to be considered as there is very high correlation between the outcomes. WildAbF accounts a .9+ correlation with all wild variables except for the for the solitary bee variable. Then for  this SocialRichF could be used.
-
-
 
 ## Updating the bee values to match the environments
 In this particular analysis, the interest is in the affects of pesticides on bee population. As such, it is necessary to correct, as best we can, for extra factors (confounding?) to make the bee values representative.

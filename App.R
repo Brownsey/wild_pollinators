@@ -3,7 +3,13 @@ library(tidyverse)
 
 data <- read_csv("agglom_summary.csv")
 
-
+#two stage process for thinner option.
+#either thinner button disappear or input changes?
+#compare two options - two dropdown list selection tasks
+#Transpose into a /100 value but reread for defn of abundance and richness.
+#background rectangle - to display typical ranges and display this dataset on top
+#Flowchart for how a user can go through the app.
+#barchart builder upper
 
 ui <-  fluidPage(titlePanel("Qualitive Bees Shiny App"),
   
