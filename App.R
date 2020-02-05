@@ -2,6 +2,11 @@ library(shiny)
 library(tidyverse)
 
 data <- read_csv("agglom_summary.csv")
+dummy <- tibble(bee_abundance = c(40,50,60,70), bee_rich = c(1,2,3,4),
+                pest = c("low","low", "high", "high"), insect =  c("low","high","low","high"))
+basic <- tibble(id = c(1), bee_abundance = c(55), bee_rich = c(2.5) )
+
+
 
 #two stage process for thinner option.
 #either thinner button disappear or input changes?
@@ -54,9 +59,42 @@ server <- function(input, output) {
   #   ggplot(subset_data, aes(x,y)) + 
   #     geom_bar()
   # })
+  
+  
+  #observeEvent()
+
   pp <- eventReactive(c(input$refresh),{
-    ggplot(mtcars) +
-    geom_point(aes(x = wt, y = mpg))
+    # ggplot(mtcars) +
+    # geom_point(aes(x = wt, y = mpg))
+    
+    
+      pesticide <- input$pesticide
+      insecticide <- input$insecticide
+      thinner <- input$thinner
+      
+    temp <- tibble(id = (nrow(basic) + 1), 
+                   bee_abundance = dummy %>% 
+                     filter(pest == pesticide) %>%
+                     filter(insect == insecticide) %>%
+                     select(bee_abundance) %>%
+                     as_vector(), 
+                   bee_rich = dummy %>% 
+                     filter(pest == pesticide) %>%
+                     filter(insect == insecticide) %>%
+                     select(bee_rich) %>%
+                     as_vector())
+    basic <- basic %>%
+      bind_rows(temp)
+    
+    
+    # basic <- basic %>%
+    #   bind_rows(id = max(basic$id) + 1, 
+    #             bee_abundance = dummy %>% 
+    #               filter(pest == input$pesticide) %>%
+    #               filter(insect == input$insecticide))
+      basic %>%
+      ggplot(aes(bee_abundance, x = factor(id))) +
+      geom_bar(stat="identity", position = "dodge", aes(fill = id))
     
   })
   
