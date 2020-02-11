@@ -1,6 +1,12 @@
 library(shiny)
 library(tidyverse)
+library(gridExtra)
 
+#put protocol 1 at top then options
+#then do the sme for protoco l2
+#change titles and make them bigger
+#can add other pages to show relationships I guess. Would make sense to allow eda plots on another page.
+#fancy plots on a 2nd page
 data <- read_csv("agglom_summary.csv")
 dummy <- tibble(bee_abundance = c(40,50,60,70), bee_rich = c(1,2,3,4),
                 pest = c("low","low", "high", "high"), insect =  c("low","high","low","high"), id = c(1,1,1,1))
@@ -34,10 +40,10 @@ ui <-  fluidPage(titlePanel("Qualitive Bees Shiny App"),
                           selectInput("pesticide1", "Pesticide Level Protocol 2:",
                                       c("Low" = "low",
                                         "High" = "high")),
-                          selectInput("insecticide1", "Insecticide Level Protocol 2::",
+                          selectInput("insecticide1", "Insecticide Level Protocol 2:",
                                       c("Low" = "low",
                                         "High" = "high")),
-                          selectInput("thinner1", "Thinner Level Protocol 2::",
+                          selectInput("thinner1", "Thinner Level Protocol 2:",
                                       c("Low" = "low",
                                         "High" = "high")),
                           actionButton("refresh","Refresh Plot:")
@@ -45,8 +51,8 @@ ui <-  fluidPage(titlePanel("Qualitive Bees Shiny App"),
                    ),
                    
                    # area for displaying the gantt diagram
-                   column(5, plotOutput("plot"),
-                          column(5, plotOutput("plot1"))
+                   column(10, plotOutput("plot")
+                          
                           
                    )
                    
@@ -69,7 +75,11 @@ server <- function(input, output) {
       filter(pest == pesticide & insect  == insecticide | pest == pesticide1 & insect  == insecticide1) %>%
       mutate(id = if_else(pest == pesticide1 & insect == insecticide1, 2, 1)) %>%
       ggplot(aes(bee_abundance, x = factor(id))) +
-      geom_bar(stat="identity", position = "dodge", aes(fill = id))
+      geom_bar(stat="identity", position = "dodge", aes(fill = id))+
+      theme_bw() +
+      labs(title = "Abundance Comparison of Orchard Protocols",
+           x = "Protocol Number", y = "Bee Abundance")+
+      theme(legend.position = "none")
 
   })
   
@@ -86,19 +96,19 @@ server <- function(input, output) {
     dummy %>%
       filter(pest == pesticide & insect  == insecticide | pest == pesticide1 & insect  == insecticide1) %>%
       mutate(id = if_else(pest == pesticide1, 2, 1)) %>%
-      ggplot(aes(bee_abundance, x = factor(id))) +
-      geom_bar(stat="identity", position = "dodge", aes(fill = id))
+      ggplot(aes(bee_rich, x = factor(id))) +
+      geom_bar(stat="identity", position = "dodge", aes(fill = id)) +
+      theme_bw() +
+      labs(title = "Richness Comparison of Orchard Protocols",
+           x = "Protocol Number", y = "Bee Richness")+
+      theme(legend.position = "none")
     
   })
   
   output$plot <- renderPlot({
-    plot_abundance()
+    grid.arrange(plot_abundance(), plot_richness(), nrow = 1)
   })
   
-  
-  output$plot1 <- renderPlot({
-    plot_richness()
-  })
 }
 
 

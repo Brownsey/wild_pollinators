@@ -23,11 +23,14 @@ library(car)
 library(pvclust)
 library(NbClust)
 library(factoextra)
+library(cluster)
+library(ggfortify)
 ```
 
 
 
 ### 2 step markov chain I guess
+write up explanation of aggregation before vs after, conditional probabilities along with the tree would be a good idea
 This section is going cover two step clustering based on various clustering methods for comparison.
 Visit data will be combined into one bee result for each orchard, note in principle this is fundementally flawed as the data does depend on previous years and the assumption that independent of the past is false as pesticide last year affects bee population this year as would be expected. In these scenarios each implementation will have a maximum of 8 clusters. Two after pre-bloom, 4 after and 8 after post bloom.
 ```{r}
@@ -35,6 +38,18 @@ load("data")
 markov_data <- data_2012 %>%
   select(ends_with(".pre"), ends_with(".blm"), ends_with(".pos"), orchard) %>%
   unique()
+
+#Standardising the data for purpose of clustering
+
+markov_data <- markov_data %>%
+  mutate(eiqB11F.pre = (eiqB11F.pre - mean(eiqB11F.pre))/sd(eiqB11F.pre)) %>%
+  mutate(eiqB11I.pre= (eiqB11I.pre - mean(eiqB11I.pre))/sd(eiqB11I.pre)) %>%
+  mutate(eiqB11F.blm = (eiqB11F.blm - mean(eiqB11F.blm))/sd(eiqB11F.blm)) %>%
+  mutate(eiqB11I.blm = (eiqB11I.blm - mean(eiqB11I.blm))/sd(eiqB11I.blm)) %>%
+  mutate(eiqB11T.blm= (eiqB11T.blm - mean(eiqB11T.blm))/sd(eiqB11T.blm)) %>%
+  mutate(eiqB11F.pos = (eiqB11F.pos - mean(eiqB11F.pos))/sd(eiqB11F.pos)) %>%
+  mutate(eiqB11I.pos = (eiqB11I.pos - mean(eiqB11I.pos))/sd(eiqB11I.pos)) %>%
+  mutate(eiqB11T.pos = (eiqB11T.pos - mean(eiqB11T.pos))/sd(eiqB11T.pos))
 
 #function to generate the agglomaerative clustering
 aggl <- function(data){
@@ -196,27 +211,44 @@ clusterings <- orchard_node_agglom %>%
 clusterings
 
 ```
+Looking at top two PCAs just to see how much variation is absorbed by these
+```{r}
+p1 <- autoplot(pam(markov_data, 3), frame = TRUE) +
+  theme_bw() +
+  ggtitle("pam, with frame")
 
+p2 <- autoplot(clara(markov_data, 3), frame = TRUE,frame.type = 'norm') +
+  theme_bw() +
+  ggtitle("clara, with a probability ellipse")
 
-
-
+grid.arrange(p1, p2 ,nrow = 1)
+```
 
 ## Non-markov structuring
-This section will approach looking at the data as one time point with 1 clustering point rather than 3 as above.
+This section will approach looking at the data as one time point with 1 clustering point rather than 3 as above:
+Method Justification - Maximum linkage function is best for both standardised and unstandardised.
 ```{r}
 whole_cluster <- data_2012 %>%
   arrange(orchard) %>%
   select(ends_with(".pre"),ends_with(".blm"), ends_with(".pos")) %>%
-  filter(row_number() %% 2 == 1)
+  filter(row_number() %% 2 == 1)  %>%
+  mutate(eiqB11F.pre = (eiqB11F.pre - mean(eiqB11F.pre))/sd(eiqB11F.pre)) %>%
+  mutate(eiqB11I.pre= (eiqB11I.pre - mean(eiqB11I.pre))/sd(eiqB11I.pre)) %>%
+  mutate(eiqB11F.blm = (eiqB11F.blm - mean(eiqB11F.blm))/sd(eiqB11F.blm)) %>%
+  mutate(eiqB11I.blm = (eiqB11I.blm - mean(eiqB11I.blm))/sd(eiqB11I.blm)) %>%
+  mutate(eiqB11T.blm= (eiqB11T.blm - mean(eiqB11T.blm))/sd(eiqB11T.blm)) %>%
+  mutate(eiqB11F.pos = (eiqB11F.pos - mean(eiqB11F.pos))/sd(eiqB11F.pos)) %>%
+  mutate(eiqB11I.pos = (eiqB11I.pos - mean(eiqB11I.pos))/sd(eiqB11I.pos)) %>%
+  mutate(eiqB11T.pos = (eiqB11T.pos - mean(eiqB11T.pos))/sd(eiqB11T.pos))
   
-#Shows no difference here although from previous work ward method was best
-# matrix of methods to compare
+# matrix of methods to compare,
+#rerun - without %>%mutate segment for non-standardised values
 m <- c( "average", "single", "complete", "ward")
 names(m) <- c( "average", "single", "complete", "ward")
 distances <- c("euclidean", "maximum", "manhattan", "canberra", 
-               "binary", "minkowski")
+               "minkowski")
 names(distances) <- c("euclidean", "maximum", "manhattan", 
-                      "canberra", "binary", "minkowski")
+                      "canberra", "minkowski")
 clust_comps <- matrix(nrow = length(distances), ncol = length(m), 
                       dimnames = list(distances,m))
 # function to compute coefficient to see which is the best method
@@ -232,18 +264,28 @@ for(i in 1:length(distances)) {
 }
 
 #In future or in write up, perhaps change, needs more clustering analysis
-#Max of this suggests ward - binary as the best method
 #Look at literature in more detail to see other benefits/drawbacks and assumptions
 #Then decide on actual best method, for now using euclidian as used that before
 clust_comps %>% 
   View()
-
-#Clusters of whole data combined - 7
+```
+Clustering code
+```{r}
+#Clusters of whole data combined - 7 - breaks sometimes with maximum bit weird but maybe another justification method as to why 4 clusters?
+#Euclidean clusters.
 fviz_nbclust(NbClust(whole_cluster, distance = "euclidean", 
                                 min.nc = 2, max.nc = 8, method = "ward.D2", index = "all"))
 
+#when using distance = "maximum,some of the methods break so index = "all" cannotbe used
+# fviz_nbclust(NbClust(whole_cluster, distance = "maximum", 
+#                                 min.nc = 2, max.nc = 8, method = "ward.D2", index = "all"))
+
+
+fviz_nbclust(NbClust(whole_cluster, distance = "maximum", 
+                                min.nc = 2, max.nc = 8, method = "ward.D2", index = c("kl", "ch", "ccc", "cindex","db", "silhouette", "duda", "pseudot2", "ptbiserial", "gap","mcclain","gamma", "gplus", "tau")))
+
 #Agglomerative clustering 
-clustered <- agnes(dist(whole_cluster, method = "euclidian"), 
+clustered <- agnes(dist(whole_cluster, method = "maximum"), 
                    diss=TRUE, method = "ward")
 # add cluster labels to the training data
 whole_cluster$cluster <- cutree(clustered, k = 4)
@@ -708,7 +750,7 @@ whole_cluster %>%
 #Cluster 3 -> middle insecticide, High Fungicide,  low thinner
 #Cluster 4 -> Low insecticide, High Fungicide, High thinner
 
-##Agglom clustering summary (end stage)
+#Agglom clustering summary (end stage)
 
 bee_summary_agglom <- adjusted_bee_summary$agglom_bees %>%
   slice(8:14) %>%
@@ -728,7 +770,7 @@ pesticide_summary_agglom <- aggl_c(aggl_node2, ".pos", 1)  %>%
 
 
 ##
-agglom_summary <- bee_summary_agglom %>% 
+agglom_summary <- bee_summary_agglom %>%
   inner_join(pesticide_summary_agglom) %>%
   select(-orchard) %>%
   #1 for high, 0 for low, just using bloom
