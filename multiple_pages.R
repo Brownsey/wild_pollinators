@@ -80,6 +80,28 @@ ui <-  navbarPage(title = "Wild Pollinators Application",
                        
                      )
             ),
+            
+            
+            tabPanel("Clustering",
+                     fluidRow(
+                       
+                       
+                       column(2,
+                              selectInput("clustering", "Select clustering method",
+                                          c("Euclidean Agglomerative" = "euc_aggl",
+                                            "Maximum Agglomerative" = "max_aggl",
+                                            "Decision Step Agglomerative" = "dec_aggl",
+                                            "Cross-Validated Kmeans" = "cv_kmeans"))
+                       ),
+                       
+                       # area for displaying the gantt diagram
+                       column(10, tableOutput("cluster_df")
+                              
+                              
+                       )
+                       
+                     )
+            ),
 
 tabPanel("About Page",
          h4("This Project was undertaken by Stephen Brownsey and Supervised by Julia Brettschneider from the University of Warwick"),
@@ -128,7 +150,7 @@ server <- function(input, output) {
     
     dummy %>%
       filter(pest == pesticide & insect  == insecticide | pest == pesticide1 & insect  == insecticide1) %>%
-      mutate(id = if_else(pest == pesticide1, 2, 1)) %>%
+      mutate(id = if_else(pest == pesticide1 & insect == insecticide1, 2, 1)) %>%
       ggplot(aes(bee_rich, x = factor(id))) +
       geom_bar(stat="identity", position = "dodge", aes(fill = id)) +
       theme_bw() +
@@ -141,6 +163,24 @@ server <- function(input, output) {
   output$plot <- renderPlot({
     grid.arrange(plot_abundance(), plot_richness(), nrow = 1)
   })
+  
+  
+  output$cluster_df <- renderTable({
+    if(input$clustering == "euc_aggl"){
+      mtcars
+    }else if (input$clustering == "max_aggl"){
+      head(mtcars)
+      
+    }else{
+      mtcars
+    }
+    
+  })
+  
+  
+  output$eda_plot <- renderPlot(({
+    
+  }))
   
 }
 
