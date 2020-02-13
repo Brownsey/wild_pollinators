@@ -62,8 +62,7 @@ ui <-  navbarPage(title = "Wild Pollinators Application",
             
             tabPanel("Exploratory Data Analysis",
                      fluidRow(
-                       
-                       
+
                        column(2,
                               selectInput("plot_type", "Plot type :",
                                           c("Low" = "low",
@@ -83,10 +82,8 @@ ui <-  navbarPage(title = "Wild Pollinators Application",
             
             
             tabPanel("Clustering",
-                     fluidRow(
-                       
-                       
-                       column(2,
+    
+                       column(3,
                               selectInput("clustering", "Select clustering method",
                                           c("Euclidean Agglomerative" = "euc_aggl",
                                             "Maximum Agglomerative" = "max_aggl",
@@ -95,12 +92,12 @@ ui <-  navbarPage(title = "Wild Pollinators Application",
                        ),
                        
                        # area for displaying the gantt diagram
-                       column(10, tableOutput("cluster_df")
+                       column(9, tableOutput("cluster_df")
                               
                               
                        )
                        
-                     )
+                     
             ),
 
 tabPanel("About Page",
