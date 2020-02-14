@@ -58,27 +58,29 @@ ui <-  navbarPage(title = "Wild Pollinators Application",
                    
                  )
             ),
-            
-            
-            tabPanel("Exploratory Data Analysis",
-                     fluidRow(
-
-                       column(2,
-                              selectInput("plot_type", "Plot type :",
-                                          c("Low" = "low",
-                                            "High" = "high")),
-                              actionButton("refresh","Refresh Plot:")
-                              
-                       ),
-                       
-                       # area for displaying the gantt diagram
-                       column(10, plotOutput("eda_plot")
-                              
-                              
+            navbarMenu("Exploratory Data Analysis",
+                       tabPanel("Relationships",
+                               
+                       fluidRow(
+                         
+                         column(2,
+                                selectInput("plot_type", "Plot type :",
+                                            c("Low" = "low",
+                                              "High" = "high")),
+                                actionButton("refresh","Refresh Plot:")
+                                
+                         ),
+                         
+                         # area for displaying the gantt diagram
+                         column(10, plotOutput("eda_plot"))
+                         
                        )
-                       
-                     )
-            ),
+            ), tabPanel("Menu item B - Link to code",
+            h4("This Project was undertaken by Stephen Brownsey and Supervised by Julia Brettschneider from the University of Warwick")
+            )),
+            
+          
+
             
             
             tabPanel("Clustering",

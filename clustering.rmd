@@ -1648,6 +1648,7 @@ agglom_summary <- bee_summary_agglom %>%
 
 ##Final summaries between models
 understand why there are more clusters in the non-standarised version?
+Put back into unit people are more familiar sense. Transform back?
 ```{r}
 maximum_final_standardised
 euclidean_final_standardised
