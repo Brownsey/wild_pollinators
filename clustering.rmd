@@ -269,8 +269,7 @@ for(i in 1:length(distances)) {
 #In future or in write up, perhaps change, needs more clustering analysis
 #Look at literature in more detail to see other benefits/drawbacks and assumptions
 #Then decide on actual best method, for now using euclidian as used that before
-clust_comps %>% 
-  View()
+non_standardisedd_clust_comps = clust_comps
 ```
 Clustering code - Maximum
 ```{r}
@@ -818,6 +817,31 @@ agglom_summary_standardised <- bee_summary_agglom %>%
   # mutate(thinner_rating = c(1,0,0,1,0,1,0))
 
 
+
+bee_summary_kmeans <- adjusted_bee_summary$kmeans_bees %>%
+  slice(8:14) %>%
+  select(-cluster) %>%
+  mutate(cluster = c(1,2,3,4,5,6,7))
+
+
+pesticide_summary_kmeans <- aggl_c(kmeans_node2, ".pos", 1)  %>%
+  bind_rows(aggl_c(kmeans_node2, ".pos", 2) %>%
+  mutate(cluster = if_else(cluster == 1, 3, 4))) %>%
+  bind_rows(aggl_c(kmeans_node3, ".pos", 1)%>%
+  mutate(cluster = if_else(cluster == 1, 5, 6))) %>%
+  bind_rows(aggl_c(kmeans_node3, ".pos", 2)%>%
+  mutate(cluster = if_else(cluster ==1, 7, 8))) %>%
+  group_by(cluster) %>%
+  summarise_all(funs(mean))
+
+
+##
+kmeans_summary_standardised <- bee_summary_kmeans %>%
+  inner_join(pesticide_summary_kmeans) %>%
+  select(-orchard)
+
+
+
 #write.csv(agglom_summary, "agglom_summary.csv")
 
 #Overall
@@ -1019,7 +1043,6 @@ clusterings <- orchard_node_agglom %>%
   bind_cols(node_km = orchard_node_kmeans %>% arrange(orchard) %>%
               select(node) %>% as_vector)
 clusterings
-
 ```
 Looking at top two PCAs just to see how much variation is absorbed by these
 ```{r}
@@ -1070,8 +1093,7 @@ for(i in 1:length(distances)) {
 #In future or in write up, perhaps change, needs more clustering analysis
 #Look at literature in more detail to see other benefits/drawbacks and assumptions
 #Then decide on actual best method, for now using euclidian as used that before
-clust_comps %>% 
-  View()
+standardised_clust_comps = clust_comps
 ```
 Clustering code - Maximum
 ```{r}
@@ -1565,6 +1587,15 @@ adjusted_bee_summary$agglom_bees %>%
   inner_join(original_bee_summary$agglom_bees %>%
                select(mean_wild_ab, mean_social_rich, cluster)) %>%
   select(cluster,mean_wild_ab, adjusted, mean_social_rich, adjusted_social)
+
+##Kmeans
+adjusted_bee_summary$kmeans_bees %>%
+  select(mean_wild_ab, mean_social_rich ,cluster) %>% 
+  rename(adjusted = mean_wild_ab) %>%
+  rename(adjusted_social = mean_social_rich) %>%
+  inner_join(original_bee_summary$kmeans_bees %>%
+               select(mean_wild_ab, mean_social_rich, cluster)) %>%
+  select(cluster,mean_wild_ab, adjusted, mean_social_rich, adjusted_social)
 ```
 I guess potentially can see two *paths* one with a mean slightly lower than the other if you think of the structure.
 
@@ -1590,7 +1621,6 @@ euclidean_final <- euclidean_cluster %>%
 #Cluster 4 -> Low insecticide, High Fungicide, High thinner
 
 #Agglom clustering summary (end stage)
-
 bee_summary_agglom <- adjusted_bee_summary$agglom_bees %>%
   slice(8:14) %>%
   select(-cluster) %>%
@@ -1608,15 +1638,38 @@ pesticide_summary_agglom <- aggl_c(aggl_node2, ".pos", 1)  %>%
   summarise_all(funs(mean))
 
 
-##
+##final agglom
 agglom_summary <- bee_summary_agglom %>%
   inner_join(pesticide_summary_agglom) %>%
-  select(-orchard) %>%
+  select(-orchard) #%>%
   #1 for high, 0 for low, just using bloom
-  mutate(pest_rating = c(0,0,1,1,0,0,1)) %>%
-  mutate(insect_rating = c(1,0,1,0,0,1,1)) %>%
-  mutate(thinner_rating = c(1,0,0,1,0,1,0))
+  # mutate(pest_rating = c(0,0,1,1,0,0,1)) %>%
+  # mutate(insect_rating = c(1,0,1,0,0,1,1)) %>%
+  # mutate(thinner_rating = c(1,0,0,1,0,1,0))
 
+
+#Kmeans
+bee_summary_kmeans <- adjusted_bee_summary$kmeans_bees %>%
+  slice(8:14) %>%
+  select(-cluster) %>%
+  mutate(cluster = c(1,2,3,4,5,6,7))
+
+
+pesticide_summary_kmeans <- aggl_c(kmeans_node2, ".pos", 1)  %>%
+  bind_rows(aggl_c(kmeans_node2, ".pos", 2) %>%
+  mutate(cluster = if_else(cluster == 1, 3, 4))) %>%
+  bind_rows(aggl_c(kmeans_node3, ".pos", 1)%>%
+  mutate(cluster = if_else(cluster == 1, 5, 6))) %>%
+  bind_rows(aggl_c(kmeans_node3, ".pos", 2)%>%
+  mutate(cluster = if_else(cluster ==1, 7, 8))) %>%
+  group_by(cluster) %>%
+  summarise_all(funs(mean))
+
+
+##
+kmeans_summary <- bee_summary_kmeans %>%
+  inner_join(pesticide_summary_kmeans) %>%
+  select(-orchard)
 
 #write.csv(agglom_summary, "agglom_summary.csv")
 
@@ -1643,17 +1696,39 @@ agglom_summary <- bee_summary_agglom %>%
 
 
 
-
-
-
 ##Final summaries between models
 understand why there are more clusters in the non-standarised version?
-Put back into unit people are more familiar sense. Transform back?
+Put back into unit people are more familiar sense. Transform back, probs not due to?
 ```{r}
-maximum_final_standardised
+round_df <- function(df, digits = 2) {
+  nums <- vapply(df, is.numeric, FUN.VALUE = logical(1))
+
+  df[,nums] <- round(df[,nums], digits = digits)
+
+  df
+}
+
+#Rounding data for shiny app display
+maximum_final_standardised <- round_df(maximum_final_standardised)
+euclidean_final_standardised <- round_df(euclidean_final_standardised)
+agglom_summary_standardised <- round_df(agglom_summary_standardised)
+kmeans_summary_standardised <- round_df(kmeans_summary_standardised)
+maximum_final <- round_df(maximum_final)
+euclidean_final <- round_df(euclidean_final)
+agglom_summary <- round_df(agglom_summary)
+kmeans_summary <- round_df(kmeans_summary)
+
+#Displaying table outputs
+maximum_final_standardised 
 euclidean_final_standardised
-agglom_summary_standardised
-maximum_final
+agglom_summary_standardised 
+kmeans_summary_standardised
+maximum_final 
 euclidean_final
 agglom_summary
+kmeans_summary
+
+# save(data_2012, maximum_final, euclidean_final, agglom_summary, kmeans_summary,
+#                maximum_final_standardised, euclidean_final_standardised,
+#                agglom_summary_standardised, kmeans_summary_standardised, clust_comps, standardised_clust_comps, file = "ShinyData.RData")
 ```

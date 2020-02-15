@@ -75,16 +75,22 @@ ui <-  navbarPage(title = "Wild Pollinators Application",
                          column(10, plotOutput("eda_plot"))
                          
                        )
-            ), tabPanel("Menu item B - Link to code",
-            h4("This Project was undertaken by Stephen Brownsey and Supervised by Julia Brettschneider from the University of Warwick")
-            )),
-            
-          
-
-            
+            ), tabPanel("Distance Metric and Linkage Function selection",
+                        fluidRow(
+                          
+                          column(2,
+                                 selectInput("standardised", "Data Standardised?",
+                                             c("Yes" = "yes",
+                                               "No" = "no"))
+                                 
+                          ),
+                          
+                          # area for displaying the gantt diagram
+                          column(10, tableOutput("metric_df"))
+                          )),
             
             tabPanel("Clustering",
-    
+                      fluidRow(
                        column(3,
                               selectInput("clustering", "Select clustering method",
                                           c("Euclidean Agglomerative" = "euc_aggl",
@@ -100,7 +106,7 @@ ui <-  navbarPage(title = "Wild Pollinators Application",
                        )
                        
                      
-            ),
+            ))),
 
 tabPanel("About Page",
          h4("This Project was undertaken by Stephen Brownsey and Supervised by Julia Brettschneider from the University of Warwick"),
@@ -110,8 +116,7 @@ tabPanel("About Page",
          h4(HTML(paste("The original paper on which the analysis is based on can be found at:", a(href="https://royalsocietypublishing.org/doi/pdf/10.1098/rspb.2015.0299", "link"), ".")))
          
 
-)
-)
+))
 
 server <- function(input, output) {
   
