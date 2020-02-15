@@ -12,7 +12,11 @@ dummy <- tibble(bee_abundance = c(40,50,60,70), bee_rich = c(1,2,3,4),
                 pest = c("low","low", "high", "high"), insect =  c("low","high","low","high"), id = c(1,1,1,1))
 basic <- tibble(id = c(1), bee_abundance = c(55), bee_rich = c(2.5) )
 
+
+load("ShinyData.Rdata")
+
 d <- reactiveValues(data = basic)
+
 
 #two stage process for thinner option.
 #either thinner button disappear or input changes?
@@ -96,12 +100,15 @@ ui <-  navbarPage(title = "Wild Pollinators Application",
                                           c("Euclidean Agglomerative" = "euc_aggl",
                                             "Maximum Agglomerative" = "max_aggl",
                                             "Decision Step Agglomerative" = "dec_aggl",
-                                            "Cross-Validated Kmeans" = "cv_kmeans"))
+                                            "Cross-Validated Kmeans" = "cv_kmeans")),
+                              selectInput("standardised_cluster", "Data Standardised?",
+                                          c("Yes" = "yes",
+                                            "No" = "no")),
+                              actionButton("refresh_cluster_output","Refresh Plot")
                        ),
                        
                        # area for displaying the gantt diagram
                        column(9, tableOutput("cluster_df")
-                              
                               
                        )
                        
@@ -169,16 +176,34 @@ server <- function(input, output) {
   })
   
   
+  cluster_df <- eventReactive(c(input$refresh_cluster_output),{
+  d1 <- reactiveValues(data = agglom_summary)  
+  standardised_cluster <- input$standardised_cluster
+  clustering <- input$clustering
+  
+  if(clustering == "euc_aggl" && standardised_cluster == "yes"){
+    d1 <- euclidean_final_standardised
+  }else if (clustering == "max_aggl" && standardised_cluster == "yes"){
+    d1 <- maximum_final_standardised
+  }else if (clustering == "dec_aggl" && standardised_cluster == "yes"){
+    d1 <- agglom_summary_standardised
+  }else if (clustering == "cv_kmeans" && standardised_cluster == "yes"){
+    d1 <- kmeans_summary_standardised
+  }else if (clustering == "max_aggl" && standardised_cluster == "no"){
+    d1 <- maximum_final
+  }else if (clustering == "dec_aggl" && standardised_cluster == "no"){
+    d1 <- agglom_summary
+  }else if (clustering == "cv_kmeans" && standardised_cluster == "no"){
+    d1 <- kmeans_summary
+  }else{
+    d1 <- euclidean_final
+  }
+  d1
+  
+})
+  
   output$cluster_df <- renderTable({
-    if(input$clustering == "euc_aggl"){
-      mtcars
-    }else if (input$clustering == "max_aggl"){
-      head(mtcars)
-      
-    }else{
-      mtcars
-    }
-    
+    cluster_df()
   })
   
   
