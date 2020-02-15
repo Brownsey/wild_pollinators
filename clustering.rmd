@@ -269,7 +269,7 @@ for(i in 1:length(distances)) {
 #In future or in write up, perhaps change, needs more clustering analysis
 #Look at literature in more detail to see other benefits/drawbacks and assumptions
 #Then decide on actual best method, for now using euclidian as used that before
-non_standardisedd_clust_comps = clust_comps
+standardised_clust_comps <- clust_comps
 ```
 Clustering code - Maximum
 ```{r}
@@ -1093,7 +1093,7 @@ for(i in 1:length(distances)) {
 #In future or in write up, perhaps change, needs more clustering analysis
 #Look at literature in more detail to see other benefits/drawbacks and assumptions
 #Then decide on actual best method, for now using euclidian as used that before
-standardised_clust_comps = clust_comps
+clust_comps = clust_comps
 ```
 Clustering code - Maximum
 ```{r}

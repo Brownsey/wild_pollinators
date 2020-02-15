@@ -62,7 +62,7 @@ ui <-  navbarPage(title = "Wild Pollinators Application",
                    
                  )
             ),
-            navbarMenu("Exploratory Data Analysis",
+            navbarMenu("Data Analysis",
                        tabPanel("Relationships",
                                
                        fluidRow(
@@ -85,9 +85,11 @@ ui <-  navbarPage(title = "Wild Pollinators Application",
                           column(2,
                                  selectInput("standardised", "Data Standardised?",
                                              c("Yes" = "yes",
-                                               "No" = "no"))
+                                               "No" = "no")),
                                  
+                                 actionButton("refresh_metric_output","Refresh Plot")       
                           ),
+                          
                           
                           # area for displaying the gantt diagram
                           column(10, tableOutput("metric_df"))
@@ -148,7 +150,7 @@ server <- function(input, output) {
       theme(legend.position = "none")
     
   })
-  
+  #Probably just show one for this clustering options, need to edit to include the "Low/High Options in select list"
   plot_richness <- eventReactive(c(input$refresh),{
     pesticide <- input$pesticide
     insecticide <- input$insecticide
@@ -157,7 +159,6 @@ server <- function(input, output) {
     pesticide1 <- input$pesticide1
     insecticide1 <- input$insecticide1
     thinner1 <- input$thinner1
-    
     
     dummy %>%
       filter(pest == pesticide & insect  == insecticide | pest == pesticide1 & insect  == insecticide1) %>%
@@ -203,8 +204,27 @@ server <- function(input, output) {
 })
   
   output$cluster_df <- renderTable({
-    cluster_df()
+  cluster_df()
   })
+  
+  
+  
+  metric_df <- eventReactive(c(input$refresh_metric_output),{#could add click button for this too
+    output <- reactiveValues(data = standardised_clust_comps)
+    if(input$standardised == "yes"){
+      output <- standardised_clust_comps
+    }else{
+      output <- clust_comps
+    }
+    output
+
+  })
+  
+
+  output$metric_df <- renderTable({
+    metric_df()
+  })
+  
   
   
   output$eda_plot <- renderPlot(({
