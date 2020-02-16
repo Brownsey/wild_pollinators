@@ -14,7 +14,9 @@ basic <- tibble(id = c(1), bee_abundance = c(55), bee_rich = c(2.5) )
 
 
 load("ShinyData.Rdata")
-
+data_2012 <- data_2012 %>%
+  mutate(wild_logged = log(wildAbF + 1)) %>%
+  mutate(social_logged = log(socialRichF + 1))
 d <- reactiveValues(data = basic)
 
 
@@ -67,16 +69,40 @@ ui <-  navbarPage(title = "Wild Pollinators Application",
                                
                        fluidRow(
                          
-                         column(2,
-                                selectInput("plot_type", "Plot type :",
-                                            c("Low" = "low",
-                                              "High" = "high")),
-                                actionButton("refresh","Refresh Plot:")
+                         column(4,
+                                selectInput("relationship_logged", "Log Transform Bee Variables?",
+                                            c("Yes" = "yes",
+                                              "No" = "no")),
+                                selectInput("relationship_y", "Variable 1:",
+                                            c("Wild Bee Abundance" = "wildAbF",
+                                              "Social Bee Richness" = "socialRichF",
+                                              "Temperature" = "temp",
+                                              "Percentage Natural Surroundings" = "X2000nat",
+                                              "Fungicide PUI before bloom" = "eiqB11F.pre",
+                                              "Fungicide PUI during bloom" = "eiqB11F.blm",
+                                              "Fungicide PUI after bloom" = "eiqB11F.pos",
+                                              "Insecticide PUI before bloom" = "eiqB11I.pre",
+                                              "Insecticide PUI during bloom" = "eiqB11I.pre",
+                                              "Insecticide PUI after bloom" = "eiqB11I.pos"
+                                              )),
+                                selectInput("relationship_x", "Variable 2:",
+                                            c("Wild Bee Abundance" = "wildAbF",
+                                              "Social Bee Richness" = "socialRichF",
+                                              "Temperature" = "temp",
+                                              "Percentage Natural Surroundings" = "X2000nat",
+                                              "Fungicide PUI before bloom" = "eiqB11F.pre",
+                                              "Fungicide PUI during bloom" = "eiqB11F.blm",
+                                              "Fungicide PUI after bloom" = "eiqB11F.pos",
+                                              "Insecticide PUI before bloom" = "eiqB11I.pre",
+                                              "Insecticide PUI during bloom" = "eiqB11I.pre",
+                                              "Insecticide PUI after bloom" = "eiqB11I.pos"
+                                            )),
+                                
+                                actionButton("refresh_relationships","Refresh Plot:")
                                 
                          ),
                          
-                         # area for displaying the gantt diagram
-                         column(10, plotOutput("eda_plot"))
+                         column(8, plotOutput("eda_plot"))
                          
                        )
             ), tabPanel("Distance Metric and Linkage Function selection",
@@ -209,7 +235,7 @@ server <- function(input, output) {
   
   
   
-  metric_df <- eventReactive(c(input$refresh_metric_output),{#could add click button for this too
+  metric_df <- eventReactive(c(input$refresh_metric_output),{
     output <- reactiveValues(data = standardised_clust_comps)
     if(input$standardised == "yes"){
       output <- standardised_clust_comps
@@ -227,8 +253,36 @@ server <- function(input, output) {
   
   
   
-  output$eda_plot <- renderPlot(({
+  
+  eda_plot <- eventReactive(c(input$refresh_relationships),{
+    x <- input$relationship_x
+    relationship_logged <- input$relationship_logged
+    #Transforming if x is a bee variable and logged
+    if(x == "wildAbF" && relationship_logged == "yes"){
+      x = "wild_logged"
+    }else if(x == "socialRichF" && relationship_logged == "yes"){
+      x = "social_logged"
+    }
     
+    y <- input$relationship_y
+    if(y == "wildAbF" && relationship_logged == "yes"){
+      y = "wild_logged"
+    }else if(y == "socialRichF" && relationship_logged == "yes"){
+      y = "social_logged"
+    }
+    
+    data_2012 %>%
+      ggplot(aes_string(x = x, y = y)) + 
+      geom_point() + 
+      geom_smooth(se = FALSE) +
+      geom_smooth(method = "lm", se = FALSE, colour = "red") +
+      theme_bw()
+  })
+  
+  
+  
+  output$eda_plot <- renderPlot(({
+    eda_plot()
   }))
   
 }
