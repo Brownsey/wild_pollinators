@@ -1,4 +1,5 @@
 library(shiny)
+library(shinythemes)
 library(tidyverse)
 library(gridExtra)
 
@@ -66,7 +67,7 @@ ui <-  navbarPage(title = "Wild Pollinators Application",
             ),
             navbarMenu("Data Analysis",
                        tabPanel("Relationships",
-                               
+                                h4("This Project was undertaken by Stephen Brownsey and Supervised by Julia Brettschneider from the University of Warwick"), 
                        fluidRow(
                          
                          column(4,

@@ -1728,6 +1728,13 @@ euclidean_final
 agglom_summary
 kmeans_summary
 
+#Could do something with this and plots coloured by cluster or something like that perhaps?
+temp_nat_adjusted %>%
+  group_by(orchard) %>%
+  summarise(mean_honey_ab = mean(apisAb),
+            mean_wild_ab = mean(adjusted_bees),
+            mean_social_rich = mean(adjusted_social))
+
 # save(data_2012, maximum_final, euclidean_final, agglom_summary, kmeans_summary,
 #                maximum_final_standardised, euclidean_final_standardised,
 #                agglom_summary_standardised, kmeans_summary_standardised, clust_comps, standardised_clust_comps, file = "ShinyData.RData")
