@@ -29,7 +29,11 @@ d <- reactiveValues(data = basic)
 #Flowchart for how a user can go through the app.
 #barchart builder upper
 
-ui <-  navbarPage(title = "Wild Pollinators Application", 
+ui <-  fluidPage(
+        theme=shinytheme("simplex"),
+        #themeSelector(),
+  
+  navbarPage(title = "Wild Pollinators Application", 
              tabPanel("Protocol Summaries",
                  fluidRow(
                    
@@ -152,7 +156,7 @@ tabPanel("About Page",
          h4(HTML(paste("The original paper on which the analysis is based on can be found at:", a(href="https://royalsocietypublishing.org/doi/pdf/10.1098/rspb.2015.0299", "link"), ".")))
          
 
-))
+)))
 
 server <- function(input, output) {
   
