@@ -203,7 +203,7 @@ server <- function(input, output) {
                fung_level == fungicide1 & insect_level  == insecticide1 & thinner_level == thinner1) %>%
       mutate(id = if_else(fung_level == fungicide1 & insect_level == insecticide1 & thinner_level == thinner1, 2, 1)) %>%
       mutate(id = factor(id)) %>%
-      ggplot(aes_string(social, x = "id")) +
+      ggplot(aes_string(wild, x = "id")) +
       geom_bar(stat="identity", position = "dodge", aes(fill = id))+
       theme_bw() +
       labs(title = "Abundance Comparison of Orchard Protocols",
@@ -257,8 +257,8 @@ server <- function(input, output) {
       ggplot(aes_string(social, x = "id")) +
       geom_bar(stat="identity", position = "dodge", aes(fill = id))+
       theme_bw() +
-      labs(title = "Abundance Comparison of Orchard Protocols",
-           x = "Protocol Number", y = "Bee Abundance")+
+      labs(title = "Richness Comparison of Orchard Protocols",
+           x = "Protocol Number", y = "Bee Richness")+
       theme(legend.position = "none")
     
   })
