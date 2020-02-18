@@ -281,7 +281,7 @@ fviz_nbclust(NbClust(maximum_cluster, distance = "maximum",
 clustered <- agnes(dist(maximum_cluster, method = "maximum"), 
                    diss=TRUE, method = "ward")
 # add cluster labels to the training data
-maximum_cluster$cluster <- cutree(clustered, k = 4)
+maximum_cluster$cluster <- cutree(clustered, k = 2)
 
 maximum_cluster
 
@@ -307,8 +307,8 @@ fviz_nbclust(NbClust(euclidean_cluster, distance = "euclidean",
 #Agglomerative clustering 
 clustered <- agnes(dist(euclidean_cluster, method = "euclidean"), 
                    diss=TRUE, method = "ward")
-# add cluster labels to the training data
-euclidean_cluster$cluster <- cutree(clustered, k = 4)
+# add cluster labels to the training data - 8 proposed2 and 7 proposed 5
+euclidean_cluster$cluster <- cutree(clustered, k = 5)
 
 euclidean_cluster
 
@@ -1104,8 +1104,8 @@ fviz_nbclust(NbClust(maximum_cluster, distance = "maximum",
 #Agglomerative clustering 
 clustered <- agnes(dist(maximum_cluster, method = "maximum"), 
                    diss=TRUE, method = "ward")
-# add cluster labels to the training data
-maximum_cluster$cluster <- cutree(clustered, k = 4)
+# add cluster labels to the training data - 5 say 2 and 4 say 8... needs more thinking about
+maximum_cluster$cluster <- cutree(clustered, k = 8)
 
 maximum_cluster
 
@@ -1713,10 +1713,31 @@ maximum_final_standardised <- round_df(maximum_final_standardised)
 euclidean_final_standardised <- round_df(euclidean_final_standardised)
 agglom_summary_standardised <- round_df(agglom_summary_standardised)
 kmeans_summary_standardised <- round_df(kmeans_summary_standardised)
-maximum_final <- round_df(maximum_final)
+# 8 clusters in this method - 6 different options so this is the cluster that will used - missing option is
+maximum_final <- round_df(maximum_final) %>%
+  mutate(fung_level =    c("high","low","low","high","high","low","low","high"))  %>%
+  mutate(insect_level =  c("low","high","high","high","low","high","low","low")) %>%
+  mutate(thinner_level = c("low","low","high","low","high","high","low","high"))
+
+protocol_summary <- maximum_final %>%
+  group_by(fung_level, insect_level, thinner_level) %>%
+  summarise(mean_wild_ab = mean(mean_wild_ab),
+            mean_social_rich = mean(mean_social_rich)) %>%
+  ungroup() %>%
+  mutate(unlogged_ab = exp(mean_wild_ab) + 1) %>%
+  mutate(unlogged_rich = exp(mean_social_rich) + 1) %>%
+  round_df()
+
 euclidean_final <- round_df(euclidean_final)
-agglom_summary <- round_df(agglom_summary)
-kmeans_summary <- round_df(kmeans_summary)
+#7 Clusters in this method - 5 diff options
+agglom_summary <- round_df(agglom_summary) %>%
+  mutate(fung_level =    c(1,1,1,1,0,0,0))  %>%
+  mutate(insect_level =  c(1,1,1,0,0,1,0)) %>%
+  mutate(thinner_level = c(1,0,1,1,0,1,0))
+#Removes previous NA inserted due to joining.
+kmeans_summary <- round_df(kmeans_summary) %>%
+  na.omit()
+  
 
 #Displaying table outputs
 maximum_final_standardised 
@@ -1726,7 +1747,7 @@ kmeans_summary_standardised
 maximum_final 
 euclidean_final
 agglom_summary
-kmeans_summary
+kmeans_summary 
 
 #Could do something with this and plots coloured by cluster or something like that perhaps?
 temp_nat_adjusted %>%
@@ -1735,7 +1756,7 @@ temp_nat_adjusted %>%
             mean_wild_ab = mean(adjusted_bees),
             mean_social_rich = mean(adjusted_social))
 
-# save(data_2012, maximum_final, euclidean_final, agglom_summary, kmeans_summary,
-#                maximum_final_standardised, euclidean_final_standardised,
-#                agglom_summary_standardised, kmeans_summary_standardised, clust_comps, standardised_clust_comps, file = "ShinyData.RData")
+save(data_2012, maximum_final, euclidean_final, agglom_summary, kmeans_summary,
+               maximum_final_standardised, euclidean_final_standardised,
+               agglom_summary_standardised, kmeans_summary_standardised, clust_comps, standardised_clust_comps, protocol_summary, file = "ShinyData.RData")
 ```

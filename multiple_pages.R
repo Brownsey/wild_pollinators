@@ -20,7 +20,6 @@ data_2012 <- data_2012 %>%
   mutate(social_logged = log(socialRichF + 1))
 d <- reactiveValues(data = basic)
 
-
 #two stage process for thinner option.
 #either thinner button disappear or input changes?
 #compare two options - two dropdown list selection tasks
@@ -37,9 +36,11 @@ ui <-  fluidPage(
              tabPanel("Protocol Summaries",
                  fluidRow(
                    
-                   
                    column(2,
-                          selectInput("pesticide", "Pesticide Level Protocol 1:",
+                          selectInput("protocol_logged", "Unlog Bee values?",
+                                      c("No" = "no",
+                                        "Yes" = "yes")),
+                          selectInput("fungicide", "Fungicide Level Protocol 1:",
                                       c("Low" = "low",
                                         "High" = "high")),
                           selectInput("insecticide", "Insecticide Level Protocol 1:",
@@ -48,7 +49,7 @@ ui <-  fluidPage(
                           selectInput("thinner", "Thinner Level Protocol 1:",
                                       c("Low" = "low",
                                         "High" = "high")),
-                          selectInput("pesticide1", "Pesticide Level Protocol 2:",
+                          selectInput("fungicide1", "Fungicide Level Protocol 2:",
                                       c("Low" = "low",
                                         "High" = "high")),
                           selectInput("insecticide1", "Insecticide Level Protocol 2:",
@@ -161,44 +162,103 @@ tabPanel("About Page",
 server <- function(input, output) {
   
   plot_abundance <- eventReactive(c(input$refresh),{
-    pesticide <- input$pesticide
+    fungicide <- input$fungicide
     insecticide <- input$insecticide
     thinner <- input$thinner
     
-    pesticide1 <- input$pesticide1
+    fungicide1 <- input$fungicide1
     insecticide1 <- input$insecticide1
     thinner1 <- input$thinner1
+
     
+    if(input$protocol_logged == "yes"){
+      wild <- "unlogged_ab"
+      social <- "unlogged_rich"
+    }else{
+      wild <- "mean_wild_ab"
+      social <- "mean_social_rich"
+    }
     
-    dummy %>%
-      filter(pest == pesticide & insect  == insecticide | pest == pesticide1 & insect  == insecticide1) %>%
-      mutate(id = if_else(pest == pesticide1 & insect == insecticide1, 2, 1)) %>%
-      ggplot(aes(bee_abundance, x = factor(id))) +
+    #Need to take account of the two options which are not classified:
+    #001 -> 000
+    #111 -> 110
+    if(fungicide == "low" && insecticide == "low" && thinner == "high"){
+      thinner = "low"
+    }
+    
+    if(fungicide1 == "low" && insecticide1 == "low" && thinner1 == "high"){
+      thinner1 = "low"
+    }
+    
+    if(fungicide == "high" && insecticide == "high" && thinner == "high"){
+      thinner = "low"
+    }
+    
+    if(fungicide1 == "low" && insecticide1 == "low" && thinner1 == "high"){
+      thinner1 = "low"
+    }
+
+    protocol_summary %>%
+      filter(fung_level == fungicide & insect_level  == insecticide & thinner_level == thinner|
+               fung_level == fungicide1 & insect_level  == insecticide1 & thinner_level == thinner1) %>%
+      mutate(id = if_else(fung_level == fungicide1 & insect_level == insecticide1 & thinner_level == thinner1, 2, 1)) %>%
+      mutate(id = factor(id)) %>%
+      ggplot(aes_string(social, x = "id")) +
       geom_bar(stat="identity", position = "dodge", aes(fill = id))+
       theme_bw() +
       labs(title = "Abundance Comparison of Orchard Protocols",
            x = "Protocol Number", y = "Bee Abundance")+
       theme(legend.position = "none")
-    
+
   })
   #Probably just show one for this clustering options, need to edit to include the "Low/High Options in select list"
   plot_richness <- eventReactive(c(input$refresh),{
-    pesticide <- input$pesticide
+    fungicide <- input$fungicide
     insecticide <- input$insecticide
     thinner <- input$thinner
     
-    pesticide1 <- input$pesticide1
+    fungicide1 <- input$fungicide1
     insecticide1 <- input$insecticide1
     thinner1 <- input$thinner1
     
-    dummy %>%
-      filter(pest == pesticide & insect  == insecticide | pest == pesticide1 & insect  == insecticide1) %>%
-      mutate(id = if_else(pest == pesticide1 & insect == insecticide1, 2, 1)) %>%
-      ggplot(aes(bee_rich, x = factor(id))) +
-      geom_bar(stat="identity", position = "dodge", aes(fill = id)) +
+    
+    if(input$protocol_logged == "yes"){
+      wild <- "unlogged_ab"
+      social <- "unlogged_rich"
+    }else{
+      wild <- "mean_wild_ab"
+      social <- "mean_social_rich"
+    }
+    
+    #Need to take account of the two options which are not classified:
+    #001 -> 000
+    #111 -> 110
+    if(fungicide == "low" && insecticide == "low" && thinner == "high"){
+      thinner = "low"
+    }
+    
+    if(fungicide1 == "low" && insecticide1 == "low" && thinner1 == "high"){
+      thinner1 = "low"
+    }
+    
+    if(fungicide == "high" && insecticide == "high" && thinner == "high"){
+      thinner = "low"
+    }
+    
+    if(fungicide1 == "low" && insecticide1 == "low" && thinner1 == "high"){
+      thinner1 = "low"
+    }
+    
+    protocol_summary %>%
+      filter(fung_level == fungicide & insect_level  == insecticide & thinner_level == thinner|
+               fung_level == fungicide1 & insect_level  == insecticide1 & thinner_level == thinner1) %>%
+      mutate(id = if_else(fung_level == fungicide1 & insect_level == insecticide1 & thinner_level == thinner1, 2, 1)) %>%
+      mutate(id = factor(id)) %>%
+      ggplot(aes_string(social, x = "id")) +
+      geom_bar(stat="identity", position = "dodge", aes(fill = id))+
       theme_bw() +
-      labs(title = "Richness Comparison of Orchard Protocols",
-           x = "Protocol Number", y = "Bee Richness")+
+      labs(title = "Abundance Comparison of Orchard Protocols",
+           x = "Protocol Number", y = "Bee Abundance")+
       theme(legend.position = "none")
     
   })
