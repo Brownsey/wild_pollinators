@@ -2,23 +2,20 @@ library(shiny)
 library(shinythemes)
 library(tidyverse)
 library(gridExtra)
+library(rsconnect)
 
 #put protocol 1 at top then options
 #then do the sme for protoco l2
 #change titles and make them bigger
 #can add other pages to show relationships I guess. Would make sense to allow eda plots on another page.
 #fancy plots on a 2nd page
-data <- read_csv("agglom_summary.csv")
-dummy <- tibble(bee_abundance = c(40,50,60,70), bee_rich = c(1,2,3,4),
-                pest = c("low","low", "high", "high"), insect =  c("low","high","low","high"), id = c(1,1,1,1))
-basic <- tibble(id = c(1), bee_abundance = c(55), bee_rich = c(2.5) )
 
 
-load("ShinyData.Rdata")
+#load("shinydata.Rdata")
+load("shinydata.rdata")
 data_2012 <- data_2012 %>%
   mutate(wild_logged = log(wildAbF + 1)) %>%
   mutate(social_logged = log(socialRichF + 1))
-d <- reactiveValues(data = basic)
 
 #two stage process for thinner option.
 #either thinner button disappear or input changes?
