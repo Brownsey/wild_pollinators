@@ -745,7 +745,7 @@ euclidean_non_markov_clusters <-  temp_nat_adjusted %>%
   summarise(mean_honey_ab = mean(apisAb),
             mean_wild_ab = mean(adjusted_bees),
             mean_social_rich = mean(adjusted_social)) %>% 
-  mutate(cluster = maximum_cluster$cluster)  %>%
+  mutate(cluster = euclidean_cluster$cluster)  %>%
   group_by(cluster) %>%
   summarise(mean_honey_ab = mean(mean_honey_ab),
             mean_wild_ab = mean(mean_wild_ab),
@@ -1706,6 +1706,12 @@ round_df <- function(df, digits = 2) {
   df[,nums] <- round(df[,nums], digits = digits)
 
   df
+}
+
+
+
+apple_order <- function(data){
+  data
 }
 
 #Rounding data for shiny app display
