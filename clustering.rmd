@@ -290,12 +290,12 @@ maximum_non_markov_clusters <- data_2012 %>%
   group_by(orchard) %>%
   summarise(mean_honey_ab = mean(apisAb),
             mean_wild_ab = mean(wildAbF),
-            mean_wild_rich = mean(wildRichF)) %>% 
+            mean_social_rich = mean(socialRichF)) %>% 
   mutate(cluster = maximum_cluster$cluster)  %>%
   group_by(cluster) %>%
   summarise(mean_honey_ab = mean(mean_honey_ab),
             mean_wild_ab = mean(mean_wild_ab),
-            mean_wild_rich = mean(mean_wild_rich),
+            mean_social_rich = mean(mean_social_rich),
             n = n())
 ```
 Clustering code - euclidean
@@ -318,12 +318,12 @@ euclidean_non_markov_clusters <- data_2012 %>%
   group_by(orchard) %>%
   summarise(mean_honey_ab = mean(apisAb),
             mean_wild_ab = mean(wildAbF),
-            mean_wild_rich = mean(wildRichF)) %>% 
+            mean_social_rich = mean(socialRichF)) %>% 
   mutate(cluster = euclidean_cluster$cluster)  %>%
   group_by(cluster) %>%
   summarise(mean_honey_ab = mean(mean_honey_ab),
             mean_wild_ab = mean(mean_wild_ab),
-            mean_wild_rich = mean(mean_wild_rich),
+            mean_social_rich = mean(mean_social_rich),
             n = n())
 ```
 
@@ -1120,12 +1120,12 @@ maximum_non_markov_clusters <- data_2012 %>%
   group_by(orchard) %>%
   summarise(mean_honey_ab = mean(apisAb),
             mean_wild_ab = mean(wildAbF),
-            mean_wild_rich = mean(wildRichF)) %>% 
+            mean_social_rich = mean(socialRichF)) %>% 
   mutate(cluster = maximum_cluster$cluster)  %>%
   group_by(cluster) %>%
   summarise(mean_honey_ab = mean(mean_honey_ab),
             mean_wild_ab = mean(mean_wild_ab),
-            mean_wild_rich = mean(mean_wild_rich),
+            mean_social_rich = mean(mean_social_rich),
             n= n())
 ```
 Clustering code - euclidean
@@ -1144,17 +1144,19 @@ euclidean_cluster$cluster <- cutree(clustered, k = 4)
 euclidean_cluster
 
 #Clustering summaries based on non-markov approach (Before Adjustment)
+#Cluster numbers are 6 ,4 ,3 ,6
 euclidean_non_markov_clusters <- data_2012 %>%
   group_by(orchard) %>%
   summarise(mean_honey_ab = mean(apisAb),
             mean_wild_ab = mean(wildAbF),
-            mean_wild_rich = mean(wildRichF)) %>% 
+            mean_social_rich = mean(socialRichF)) %>% 
   mutate(cluster = euclidean_cluster$cluster)  %>%
   group_by(cluster) %>%
   summarise(mean_honey_ab = mean(mean_honey_ab),
             mean_wild_ab = mean(mean_wild_ab),
-            mean_wild_rich = mean(mean_wild_rich),
+            mean_social_rich = mean(mean_social_rich),
             n= n())
+euclidean_non_markov_clusters
 ```
 
 
@@ -1580,7 +1582,7 @@ euclidean_non_markov_clusters <-  temp_nat_adjusted %>%
   summarise(mean_honey_ab = mean(apisAb),
             mean_wild_ab = mean(adjusted_bees),
             mean_social_rich = mean(adjusted_social)) %>% 
-  mutate(cluster = maximum_cluster$cluster)  %>%
+  mutate(cluster = euclidean_cluster$cluster)  %>%
   group_by(cluster) %>%
   summarise(mean_honey_ab = mean(mean_honey_ab),
             mean_wild_ab = mean(mean_wild_ab),
@@ -1621,7 +1623,7 @@ maximum_final <- maximum_cluster %>%
   summarise_all(funs(mean)) %>%
   inner_join(maximum_non_markov_clusters)
 
-#Non_markov clustering summary maximum
+#Non_markov clustering summary euclidean
 euclidean_final <- euclidean_cluster %>% 
   group_by(cluster) %>%
   summarise_all(funs(mean)) %>%
