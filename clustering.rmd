@@ -1715,7 +1715,21 @@ understand why there are more clusters in the non-standarised version?
 Put back into unit people are more familiar sense. Transform back, probs not due to?
 ```{r}
 round_df <- function(df, digits = 2) {
-  nums <- vapply(df, is.numeric, FUN.VALUE = logical(1))
+  #Using a temp variable to not round cluster and n as these are integers
+ temp <- df %>%
+    mutate(cluster = as.character(cluster))  %>%
+    mutate(n = as.character(n))
+  nums <- vapply(temp, is.numeric , FUN.VALUE = logical(1))
+
+  df[,nums] <- round(df[,nums], digits = digits)
+
+  df
+}
+
+#Need a different rounding function when cluster/n not present
+round_df_2 <- function(df, digits = 2) {
+
+  nums <- vapply(df, is.numeric , FUN.VALUE = logical(1))
 
   df[,nums] <- round(df[,nums], digits = digits)
 
@@ -1758,7 +1772,7 @@ protocol_summary <- maximum_final_app %>%
   ungroup() %>%
   mutate(unlogged_ab = exp(mean_wild_ab) + 1) %>%
   mutate(unlogged_rich = exp(mean_social_rich) + 1) %>%
-  round_df()
+  round_df_2()
 
 euclidean_final <- round_df(euclidean_final) %>%
   apple_order()
