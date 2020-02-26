@@ -295,7 +295,8 @@ maximum_non_markov_clusters <- data_2012 %>%
   group_by(cluster) %>%
   summarise(mean_honey_ab = mean(mean_honey_ab),
             mean_wild_ab = mean(mean_wild_ab),
-            mean_wild_rich = mean(mean_wild_rich))
+            mean_wild_rich = mean(mean_wild_rich),
+            n = n())
 ```
 Clustering code - euclidean
 
@@ -322,7 +323,8 @@ euclidean_non_markov_clusters <- data_2012 %>%
   group_by(cluster) %>%
   summarise(mean_honey_ab = mean(mean_honey_ab),
             mean_wild_ab = mean(mean_wild_ab),
-            mean_wild_rich = mean(mean_wild_rich))
+            mean_wild_rich = mean(mean_wild_rich),
+            n = n())
 ```
 
 
@@ -627,7 +629,8 @@ clusterise <- function(bee_data, cluster_data, v_name = deparse(substitute(clust
   inner_join(bee_data, cluster_data) %>%
     summarise(mean_honey_ab = mean(mean_honey_ab),
               mean_wild_ab = mean(mean_wild_ab),
-              mean_social_rich = mean(mean_social_rich)) %>%
+              mean_social_rich = mean(mean_social_rich),
+              n = n()) %>%
     mutate(cluster = v_name)
 }
 
@@ -705,7 +708,8 @@ non_markov_clusters <-  logged_data %>%
   group_by(cluster) %>%
   summarise(mean_honey_ab = mean(mean_honey_ab),
             mean_wild_ab = mean(mean_wild_ab),
-            mean_social_rich = mean(mean_social_rich))
+            mean_social_rich = mean(mean_social_rich),
+            n = n())
 ```
 After Adjustment:
 ```{r, message = FALSE}
@@ -737,7 +741,8 @@ maximum_non_markov_clusters <-  temp_nat_adjusted %>%
   group_by(cluster) %>%
   summarise(mean_honey_ab = mean(mean_honey_ab),
             mean_wild_ab = mean(mean_wild_ab),
-            mean_social_rich = mean(mean_social_rich))
+            mean_social_rich = mean(mean_social_rich),
+            n= n())
 
 ##euclidean:
 euclidean_non_markov_clusters <-  temp_nat_adjusted %>%
@@ -749,7 +754,8 @@ euclidean_non_markov_clusters <-  temp_nat_adjusted %>%
   group_by(cluster) %>%
   summarise(mean_honey_ab = mean(mean_honey_ab),
             mean_wild_ab = mean(mean_wild_ab),
-            mean_social_rich = mean(mean_social_rich))
+            mean_social_rich = mean(mean_social_rich),
+            n= n())
 ```
 Although honey bee abundance is one of the summarised variables, this is likely to be related directly to the hive.acr variable.
 
@@ -1119,7 +1125,8 @@ maximum_non_markov_clusters <- data_2012 %>%
   group_by(cluster) %>%
   summarise(mean_honey_ab = mean(mean_honey_ab),
             mean_wild_ab = mean(mean_wild_ab),
-            mean_wild_rich = mean(mean_wild_rich))
+            mean_wild_rich = mean(mean_wild_rich),
+            n= n())
 ```
 Clustering code - euclidean
 
@@ -1146,7 +1153,8 @@ euclidean_non_markov_clusters <- data_2012 %>%
   group_by(cluster) %>%
   summarise(mean_honey_ab = mean(mean_honey_ab),
             mean_wild_ab = mean(mean_wild_ab),
-            mean_wild_rich = mean(mean_wild_rich))
+            mean_wild_rich = mean(mean_wild_rich),
+            n= n())
 ```
 
 
@@ -1451,7 +1459,8 @@ clusterise <- function(bee_data, cluster_data, v_name = deparse(substitute(clust
   inner_join(bee_data, cluster_data) %>%
     summarise(mean_honey_ab = mean(mean_honey_ab),
               mean_wild_ab = mean(mean_wild_ab),
-              mean_social_rich = mean(mean_social_rich)) %>%
+              mean_social_rich = mean(mean_social_rich),
+              n = n()) %>%
     mutate(cluster = v_name)
 }
 
@@ -1529,7 +1538,8 @@ non_markov_clusters <-  logged_data %>%
   group_by(cluster) %>%
   summarise(mean_honey_ab = mean(mean_honey_ab),
             mean_wild_ab = mean(mean_wild_ab),
-            mean_social_rich = mean(mean_social_rich))
+            mean_social_rich = mean(mean_social_rich),
+            n= n())
 ```
 After Adjustment:
 ```{r, message = FALSE}
@@ -1561,7 +1571,8 @@ maximum_non_markov_clusters <-  temp_nat_adjusted %>%
   group_by(cluster) %>%
   summarise(mean_honey_ab = mean(mean_honey_ab),
             mean_wild_ab = mean(mean_wild_ab),
-            mean_social_rich = mean(mean_social_rich))
+            mean_social_rich = mean(mean_social_rich),
+            n= n())
 
 ##euclidean:
 euclidean_non_markov_clusters <-  temp_nat_adjusted %>%
@@ -1573,7 +1584,8 @@ euclidean_non_markov_clusters <-  temp_nat_adjusted %>%
   group_by(cluster) %>%
   summarise(mean_honey_ab = mean(mean_honey_ab),
             mean_wild_ab = mean(mean_wild_ab),
-            mean_social_rich = mean(mean_social_rich))
+            mean_social_rich = mean(mean_social_rich),
+            n= n())
 ```
 Although honey bee abundance is one of the summarised variables, this is likely to be related directly to the hive.acr variable.
 
@@ -1711,21 +1723,33 @@ round_df <- function(df, digits = 2) {
 
 
 apple_order <- function(data){
-  data
+  data %>%
+    select(cluster, n, mean_wild_ab, mean_social_rich, contains("pre"), contains("blm"), contains("pos"))
 }
 
 #Rounding data for shiny app display
-maximum_final_standardised <- round_df(maximum_final_standardised)
-euclidean_final_standardised <- round_df(euclidean_final_standardised)
-agglom_summary_standardised <- round_df(agglom_summary_standardised)
-kmeans_summary_standardised <- round_df(kmeans_summary_standardised)
+maximum_final_standardised <- round_df(maximum_final_standardised) %>%
+  apple_order()
+euclidean_final_standardised <- round_df(euclidean_final_standardised) %>%
+  apple_order()
+#no n
+agglom_summary_standardised <- round_df(agglom_summary_standardised) %>%
+  apple_order()
+#no n
+kmeans_summary_standardised <- round_df(kmeans_summary_standardised) %>%
+  apple_order()
 # 8 clusters in this method - 6 different options so this is the cluster that will used - missing option is
 maximum_final <- round_df(maximum_final) %>%
+  apple_order()
+
+maximum_final_app <- maximum_final %>%
   mutate(fung_level =    c("high","low","low","high","high","low","low","high"))  %>%
   mutate(insect_level =  c("low","high","high","high","low","high","low","low")) %>%
   mutate(thinner_level = c("low","low","high","low","high","high","low","high"))
 
-protocol_summary <- maximum_final %>%
+
+
+protocol_summary <- maximum_final_app %>%
   group_by(fung_level, insect_level, thinner_level) %>%
   summarise(mean_wild_ab = mean(mean_wild_ab),
             mean_social_rich = mean(mean_social_rich)) %>%
@@ -1734,15 +1758,18 @@ protocol_summary <- maximum_final %>%
   mutate(unlogged_rich = exp(mean_social_rich) + 1) %>%
   round_df()
 
-euclidean_final <- round_df(euclidean_final)
+euclidean_final <- round_df(euclidean_final) %>%
+  apple_order()
 #7 Clusters in this method - 5 diff options
 agglom_summary <- round_df(agglom_summary) %>%
   mutate(fung_level =    c(1,1,1,1,0,0,0))  %>%
   mutate(insect_level =  c(1,1,1,0,0,1,0)) %>%
-  mutate(thinner_level = c(1,0,1,1,0,1,0))
+  mutate(thinner_level = c(1,0,1,1,0,1,0)) %>%
+  apple_order()
 #Removes previous NA inserted due to joining.
 kmeans_summary <- round_df(kmeans_summary) %>%
-  na.omit()
+  na.omit() %>%
+  apple_order()
   
 
 #Displaying table outputs
@@ -1762,7 +1789,7 @@ temp_nat_adjusted %>%
             mean_wild_ab = mean(adjusted_bees),
             mean_social_rich = mean(adjusted_social))
 
-save(data_2012, maximum_final, euclidean_final, agglom_summary, kmeans_summary,
+save(data_2012, maximum_final, maximum_final_app, euclidean_final, agglom_summary, kmeans_summary,
                maximum_final_standardised, euclidean_final_standardised,
                agglom_summary_standardised, kmeans_summary_standardised, clust_comps, standardised_clust_comps, protocol_summary, file = "shinydata.RData")
 ```
