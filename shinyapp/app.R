@@ -12,7 +12,7 @@ library(rsconnect)
 
 
 #load("shinydata.Rdata")
-load("shinydata.rdata")
+load("shinydata.RData")
 data_2012 <- data_2012 %>%
   mutate(wild_logged = log(wildAbF + 1)) %>%
   mutate(social_logged = log(socialRichF + 1))
