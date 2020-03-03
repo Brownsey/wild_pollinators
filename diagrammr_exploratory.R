@@ -126,6 +126,48 @@ g -> {n o}
 tree_2_2_2
 
 
+
+
+tree_4 <- grViz("
+digraph dot {
+
+graph [layout = dot,
+       rankdir = LR]
+
+node [shape = circle,
+      style = filled,
+      color = grey,
+      label = '0']
+
+node [fillcolor = red,
+      label = '19']
+a
+
+node [fillcolor = green,
+label = '6']
+b 
+
+node [fillcolor = green,
+label = '4']
+c
+
+node [fillcolor = green,
+label = '3']
+d 
+
+node [fillcolor = green,
+label = '6']
+e
+
+
+
+edge [color = grey]
+a -> {b c d e}
+}")
+tree_4
+
+
+
 tree_2_2_2 <- grViz("
 digraph dot {
 

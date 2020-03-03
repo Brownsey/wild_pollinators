@@ -4,11 +4,12 @@ library(tidyverse)
 data <- tibble(method = c("Maximum Linkage standardised",
                           "Euclidean Linkage standardised",
                           "Decision Agglomerative standardised",
-                          "Decision kmeans standardised",
+                          "Decision Kmeans standardised",
                           "Maximum Linkage",
                           "Euclidean Linkage",
-                          "Decision agglomomerative",
-                          "Decision kmeans"), num_clusts = c(2,5,4,3,8,4,7,5))
+                          "Decision Agglomomerative",
+                          "Decision Kmeans"), num_clusts = c(2,5,4,3,8,4,7,5)) %>%
+  mutate(method = as_factor(method))
 
 
 data %>% 
@@ -27,3 +28,4 @@ data %>%
         axis.title=element_text(size=14),
         plot.title = element_text(size = 18)) +
   ggtitle("Linkage Function VS Number of Clusters")
+
