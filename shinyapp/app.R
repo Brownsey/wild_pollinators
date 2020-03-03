@@ -145,6 +145,30 @@ ui <-  fluidPage(
                        
                      
             ))),
+            
+            
+            # tabPanel("Custom",
+            #          
+            #          
+            #          fluidRow(
+            #            column(4,
+            #                   textInput("pre_f", label = h3("Pre-Bloom Fungicide:"), value = "0"),
+            #                   textInput("dur_f", label = h3("During-Bloom Fungicide:"), value = "0"),
+            #                   textInput("post_f", label = h3("During-Bloom Fungicide:"), value = "0"),
+            #                   textInput("pre_i", label = h3("Pre-Bloom Insecticide:"), value = "0"),
+            #                   textInput("dur_i", label = h3("During-Bloom Insecticide:"), value = "0"),
+            #                   textInput("post_i", label = h3("During-Bloom Insecticide:"), value = "0"),
+            #                   textInput("pre_t", label = h3("Pre-Bloom Thinner:"), value = "0"),
+            #                   textInput("dur_t", label = h3("During-Bloom Thinner:"), value = "0"),
+            #                   textInput("post_t", label = h3("During-Bloom Thinner:"), value = "0"),
+            #                   actionButton("refresh_knn","Refresh Plot")
+            #                   ,
+            #            
+            #            # area for displaying the gantt diagram
+            #            column(8, tableOutput("knn_output"))))
+            # 
+            #          
+            # ),
 
 tabPanel("About Page",
          h4("This Project was undertaken by Stephen Brownsey and Supervised by Julia Brettschneider from the University of Warwick"),
@@ -152,7 +176,7 @@ tabPanel("About Page",
          h4(HTML(paste("A full pdf guide on how to use the app can be found at:", a(href="https://github.com/Brownsey/wild_pollinators/INSERTLINK", "link"), "."))),
          h4(HTML(paste("Thanks for using the application. Reference code available at the following", a(href="https://github.com/Brownsey/wild_pollinators", "link"), "."))),
          h4(HTML(paste("The original paper on which the analysis is based on can be found at:", a(href="https://royalsocietypublishing.org/doi/pdf/10.1098/rspb.2015.0299", "link"), ".")))
-         
+        
 
 )))
 
@@ -348,6 +372,15 @@ server <- function(input, output) {
   }))
   
 }
+
+
+# knn_plot<- eventReactive(c(input$refresh_relationships),{
+#  knn_df <- tibble()
+# })
+# 
+# output$knn_plot <- renderPlot({
+#   knn_plot()
+# })
 
 
 shinyApp(ui, server)
