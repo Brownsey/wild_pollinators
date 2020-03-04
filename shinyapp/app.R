@@ -148,8 +148,8 @@ ui <-  fluidPage(
             
             
             # tabPanel("Custom",
-            #          
-            #          
+            # 
+            # 
             #          fluidRow(
             #            column(4,
             #                   textInput("pre_f", label = h3("Pre-Bloom Fungicide:"), value = "0"),
@@ -158,16 +158,15 @@ ui <-  fluidPage(
             #                   textInput("pre_i", label = h3("Pre-Bloom Insecticide:"), value = "0"),
             #                   textInput("dur_i", label = h3("During-Bloom Insecticide:"), value = "0"),
             #                   textInput("post_i", label = h3("During-Bloom Insecticide:"), value = "0"),
-            #                   textInput("pre_t", label = h3("Pre-Bloom Thinner:"), value = "0"),
             #                   textInput("dur_t", label = h3("During-Bloom Thinner:"), value = "0"),
             #                   textInput("post_t", label = h3("During-Bloom Thinner:"), value = "0"),
             #                   actionButton("refresh_knn","Refresh Plot")
             #                   ,
-            #            
-            #            # area for displaying the gantt diagram
-            #            column(8, tableOutput("knn_output"))))
             # 
-            #          
+            #            # area for displaying the gantt diagram
+            #            column(8, plotOutput("knn_output"))))
+            # 
+            # 
             # ),
 
 tabPanel("About Page",
@@ -374,13 +373,21 @@ server <- function(input, output) {
 }
 
 
-# knn_plot<- eventReactive(c(input$refresh_relationships),{
-#  knn_df <- tibble()
+# knn_plot<- eventReactive(c(input$refresh_knn),{
+# #Add in inputs into a "test" one row test dataset?
+# #Commpare with clusters of one of the clusters with nearest 1 cluster
+# #Probably would work but in theory this seems suboptimal
+# #Maybe go back a set to 
+#  knn_plot <- tibble(eiqB11F.pre = input$pre_f,  eiqB11I.pre= input$pref_i,  eiqB11F.blm = input$dur_f,  eiqB11I.blm = input$dur_i,
+#   eiqB11T.blm = input$dur_t,  eiqB11F.pos = input$post_f,  eiqB11I.pos = input$post_i,  eiqB11T.pos = input$post_t)
+#  
+#  knn <- knn(agglom_summary %>% select(c(6:13)), knn_df, k =1, labels = agglom_summary %>% select(c(1)))
+#  ggplot()
 # })
 # 
-# output$knn_plot <- renderPlot({
+# output$knn_output <- renderPlot(({
 #   knn_plot()
-# })
+# }))
 
 
 shinyApp(ui, server)
