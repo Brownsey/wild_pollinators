@@ -17,6 +17,17 @@ data_2012 <- data_2012 %>%
   mutate(wild_logged = log(wildAbF + 1)) %>%
   mutate(social_logged = log(socialRichF + 1))
 
+standardised_clust_comps <- standardised_clust_comps %>%
+  as_tibble() %>%
+  slice(-(5)) %>%
+  mutate(distance_methods = c("Euclidean", "Maximum", "Manhattan", "Canberra")) %>%
+  select(distance_methods,average, single, complete, ward)
+clust_comps <- clust_comps %>%
+  as_tibble() %>%
+  slice(-(5)) %>%
+  mutate(distance_methods = c("Euclidean", "Maximum", "Manhattan", "Canberra")) %>%
+  select(distance_methods,average, single, complete, ward)
+
 #two stage process for thinner option.
 #either thinner button disappear or input changes?
 #compare two options - two dropdown list selection tasks
@@ -298,15 +309,19 @@ server <- function(input, output) {
   }else if (clustering == "max_aggl" && standardised_cluster == "yes"){
     d1 <- maximum_final_standardised
   }else if (clustering == "dec_aggl" && standardised_cluster == "yes"){
-    d1 <- agglom_summary_standardised
+    d1 <- agglom_summary_standardised  %>%
+      mutate(cluster = as.integer(cluster))
   }else if (clustering == "cv_kmeans" && standardised_cluster == "yes"){
-    d1 <- kmeans_summary_standardised
+    d1 <- kmeans_summary_standardised %>%
+      mutate(cluster = as.integer(cluster))
   }else if (clustering == "max_aggl" && standardised_cluster == "no"){
-    d1 <- maximum_final
+    d1 <- maximum_final 
   }else if (clustering == "dec_aggl" && standardised_cluster == "no"){
-    d1 <- agglom_summary
+    d1 <- agglom_summary  %>%
+      mutate(cluster = as.integer(cluster))
   }else if (clustering == "cv_kmeans" && standardised_cluster == "no"){
-    d1 <- kmeans_summary
+    d1 <- kmeans_summary %>%
+      mutate(cluster = as.integer(cluster))
   }else{
     d1 <- euclidean_final
   }
