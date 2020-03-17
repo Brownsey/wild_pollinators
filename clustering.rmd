@@ -573,6 +573,10 @@ logged_data <- data_2012 %>%
   mutate(adjusted_bees = log(wildAbF + 1)) %>%
   mutate(adjusted_social = log(socialRichF + 1))
 
+#Looking at the model ~ only X2000nat and temp significant
+lm(adjusted_bees ~ temp + X2000nat + local.diversity + region + day +  bloom.index, data = logged_data) %>%
+  summary
+
 #Defining linear model with temp and X2000nat as factors
 temp_nat_lm <- tidy(lm(adjusted_bees ~ temp + X2000nat, data = logged_data))
 #Extracting temp and nat estimate values
@@ -599,9 +603,10 @@ The same process can be applied to the variable SocialRichF, the other bee varia
 Since we know that only temp and nat were statistic on the wildAbF we can go straight to the LM and test that (May need to check this with Julia, if not just cp previous analsysis...)
 
 
+
 ```{r}
 #Looking at the model ~ only X2000nat significant
-lm(adjusted_social ~ temp + X2000nat + local.diversity + region, data = logged_data) %>%
+lm(adjusted_social ~ temp + X2000nat + local.diversity + region + day +  bloom.index, data = logged_data) %>%
   summary
 social_lm<- tidy(lm(adjusted_social ~ X2000nat, data = logged_data))
 
