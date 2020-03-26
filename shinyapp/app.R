@@ -80,7 +80,7 @@ ui <-  fluidPage(
             ),
             navbarMenu("Data Analysis",
                        tabPanel("Relationships",
-                                h4("This Project was undertaken by Stephen Brownsey and Supervised by Julia Brettschneider from the University of Warwick"), 
+                                h4("This page demonstrates the relationships between considered bee variables and both potential confounders and pesticides"), 
                        fluidRow(
                          
                          column(4,
@@ -183,8 +183,7 @@ ui <-  fluidPage(
 tabPanel("About Page",
          h4("This Project was undertaken by Stephen Brownsey and Supervised by Julia Brettschneider from the University of Warwick"),
          h4("Each tab of the application demonstrates various aspects of the analysis undertaken"),
-         h4(HTML(paste("A full pdf guide on how to use the app can be found at:", a(href="https://github.com/Brownsey/wild_pollinators/INSERTLINK", "link"), "."))),
-         h4(HTML(paste("Thanks for using the application. Reference code available at the following", a(href="https://github.com/Brownsey/wild_pollinators", "link"), "."))),
+         h4(HTML(paste("All code used in the project as well as making the application can be found at:", a(href="https://github.com/Brownsey/wild_pollinators", "link"), "."))),
          h4(HTML(paste("The original paper on which the analysis is based on can be found at:", a(href="https://royalsocietypublishing.org/doi/pdf/10.1098/rspb.2015.0299", "link"), ".")))
         
 

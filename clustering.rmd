@@ -297,6 +297,7 @@ maximum_non_markov_clusters <- data_2012 %>%
             mean_wild_ab = mean(mean_wild_ab),
             mean_social_rich = mean(mean_social_rich),
             n = n())
+
 ```
 Clustering code - euclidean
 
@@ -1366,10 +1367,12 @@ First it shall be graphed to see if there is any obvious correlation.
 ```{r}
 logged_data %>%
   ggplot(aes(x = bloom.index, y = adjusted_bees)) +
-  geom_smooth() +
-  geom_smooth(method = "lm", colour = "red") + 
+  geom_point() +
+  geom_smooth(se = FALSE) +
+  geom_smooth(method = "lm", colour = "red", se =FALSE) + 
   theme_bw() +  
-  geom_point()
+  geom_point() %>%
+  labs(x = "Bloom Index", y = "Bee Abundance")
 ```
 There doesn't seem to be any obvious correlation, but just to be sure I'll split the bloom into thee categories and test these with an Anova test.
 ```{r}
@@ -1807,6 +1810,16 @@ temp_nat_adjusted %>%
   summarise(mean_honey_ab = mean(apisAb),
             mean_wild_ab = mean(adjusted_bees),
             mean_social_rich = mean(adjusted_social))
+
+
+##Looking at total amount for raw data max and euclid
+maximum_final %>%
+   mutate(sum = rowSums(.[5:12])) %>%
+  select(cluster, n , mean_wild_ab, mean_social_rich,sum) 
+
+euclidean_final %>%
+   mutate(sum = rowSums(.[5:12])) %>%
+  select(cluster, n , mean_wild_ab, mean_social_rich,sum) 
 
 save(data_2012, maximum_final, maximum_final_app, euclidean_final, agglom_summary, kmeans_summary,
                maximum_final_standardised, euclidean_final_standardised,
