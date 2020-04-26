@@ -5,6 +5,6 @@ account: brownsey
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 1834854
-bundleId: 2851024
+bundleId: 3066702
 url: https://brownsey.shinyapps.io/shinyapp/
-when: 1583340711.40805
+when: 1587898073.11623
