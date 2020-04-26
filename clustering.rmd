@@ -27,12 +27,14 @@ library(cluster)
 library(ggfortify)
 ```
 
+## Introduction
 
+The code in this .rmd file covers the analysis undertaken into which clusters methods perform best, given the sparse orchard data. All the Machine learning principles are applied in this section file as well as any extra exploratory data analysis. All the main findings were reported in the final dissertation report, although there are some extra exploratory data analysis and interim steps in this .rmd which are not significant enough to warrant making it to the final report. The process is repeated for both standardised and non-standardised data
 
-### 2 step markov chain I guess
-write up explanation of aggregation before vs after, conditional probabilities along with the tree would be a good idea
+### Looking at a Markov Approach
 This section is going cover two step clustering based on various clustering methods for comparison.
-Visit data will be combined into one bee result for each orchard, note in principle this is fundementally flawed as the data does depend on previous years and the assumption that independent of the past is false as pesticide last year affects bee population this year as would be expected. In these scenarios each implementation will have a maximum of 8 clusters. Two after pre-bloom, 4 after and 8 after post bloom.
+In these scenarios each implementation will have a maximum of 8 clusters. Two after pre-bloom, 4 after and 8 after post bloom.
+Of these 8 final clusters it is expected that some may be sparse with no orchards in
 ```{r}
 load("data")
 markov_data <- data_2012 %>%
@@ -123,7 +125,7 @@ orchard_node_agglom <- tibble(orchard = aggl_node4 %>% filter(cluster == 1) %>% 
   bind_rows(tibble(orchard = aggl_node7 %>% filter(cluster == 1) %>% select(orchard) %>% as_vector, node = 14))
 ```
 
-kmeans approach: Even running the 1001 times it is different everytime: store output later on but run it like 1million times at each stage.
+kmeans approach: Even running the 1001 times it is different everytime.
 
 ```{r}
 #function to generate the kmeans clustering
@@ -348,7 +350,7 @@ This demonstrates that to consider the affects on wild bees, just two variables 
 ## Updating the bee values to match the environments
 In this particular analysis, the interest is in the affects of pesticides on bee population. As such, it is necessary to correct, as best we can, for extra factors (confounding?) to make the bee values representative.
 
-All these graphs were plotted as part of EDA by the use of lapply to the a basic plotting function. Here the relationships between some of the main extra factors (are they confounding?) will be examined.
+All these graphs were plotted as part of EDA by the use of lapply to the a basic plotting function. Here the relationships between some of the main extra factors (whether they are confounding or not) will be examined.
 
 ##### Temperature
 It is known that temperature affects the speed at which bees fly, as such this will have an effect on bee abundance and possibly richness although more bees might not necessarily mean more species are observed. From the previous analysis carried out it is known that a log(x) + 1 transposition of bee count allows for a "better" model fit and as such in general this will the case for our observations.
@@ -406,7 +408,7 @@ wild_bee_abundance_agglom_adjusted
 ```
 
 ##### X2000nat
-Based on previous research undertaken in the white paper it is known that the X2000nat variable has an effect on the the bee count so it also necessary to adjust for this. Wher Again the value will be adjust as though the X2000nat variable is constant. In this case the mean will be chosen as the constant value and the bee count will be adjusted for this in the same way as above. 
+Based on previous research undertaken in the original paper it is known that the X2000nat variable has an effect on the the bee count so it also necessary to adjust for this. Wher Again the value will be adjust as though the X2000nat variable is constant. In this case the mean will be chosen as the constant value and the bee count will be adjusted for this in the same way as above. 
 
 
 ```{r}
@@ -1625,10 +1627,10 @@ adjusted_bee_summary$kmeans_bees %>%
                select(mean_wild_ab, mean_social_rich, cluster)) %>%
   select(cluster,mean_wild_ab, adjusted, mean_social_rich, adjusted_social)
 ```
-I guess potentially can see two *paths* one with a mean slightly lower than the other if you think of the structure.
+Potentially can see two *paths* one with a mean slightly lower than the other if you think of the structure.
 
 ### Looking at clusters
-The aim of this section is to look at the clusterings from a low, medium, high point of view...
+The aim of this section is to look at the clusterings from a low, medium, high point of view, so that an end user doesn't need to understand the numerical implications.
 
 ```{r}
 #Non_markov clustering summary maximum
@@ -1725,8 +1727,7 @@ kmeans_summary <- bee_summary_kmeans %>%
 
 
 ##Final summaries between models
-understand why there are more clusters in the non-standarised version?
-Put back into unit people are more familiar sense. Transform back, probs not due to?
+This section summarises all of the cluster modelled scenarios
 ```{r}
 round_df <- function(df, digits = 2) {
   #Using a temp variable to not round cluster and n as these are integers
@@ -1827,6 +1828,7 @@ euclidean_final %>%
    mutate(sum = rowSums(.[5:12])) %>%
   select(cluster, n , mean_wild_ab, mean_social_rich,sum) 
 
+#Saving the final clusters for use in the shiny app
 save(data_2012, maximum_final, maximum_final_app, euclidean_final, agglom_summary, kmeans_summary,
                maximum_final_standardised, euclidean_final_standardised,
                agglom_summary_standardised, kmeans_summary_standardised, clust_comps, standardised_clust_comps, protocol_summary, file = "shinydata.RData")

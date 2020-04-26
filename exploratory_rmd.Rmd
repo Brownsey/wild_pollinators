@@ -20,6 +20,7 @@ library(GGally)
 ```
 
 ### Map Analysis
+This analysis covers sensitive PI data and as such will not be used in any final reporting. However, since the data is freely available online, the analysis will be kept in the GitHub page code.
 
 ```{r}
 #Loading the data in from paper ~ downloaded from their resources as a .xlsx, created csv with useful page for quicker reading.
@@ -59,7 +60,7 @@ plotted_map
 ## 
 ```
 
-### Jumped Straight into this original look
+### General EDA
 
 
 ```{r}
@@ -107,9 +108,6 @@ temperature_plot <- temperature_plot +
   theme_bw()
 
 
-
-#Actually shows like nothing lol
-
 log_data <- data %>%
   mutate(apisAb = log(apisAb), wildAbF = log(wildAbF))
 
@@ -129,16 +127,6 @@ pui_plot <-  ggplot(data = data) +
   ylab("Abundance Rating")
 pui_plot
 
-#Doesn't show too much
-pui_plot <-  ggplot(data = data) +
-  geom_point(aes(x = eiqB11, y = apisAb), colour = "orange") +
-  geom_point(aes(x = eiqB11, y = wildAbF), colour = "green") +
-  ggtitle("Abundance of honey bees and wild bees vs Total PUI") +
-  xlab("Total PUI") + 
-  ylab("Abundance Rating")
-pui_plot
-
-
 fungicide_plot <-  ggplot(data = data) +
   geom_point(aes(x = eiqB11.fun, y = apisAb), colour = "orange") +
   geom_point(aes(x = eiqB11.fun, y = wildAbF), colour = "green") +
@@ -157,6 +145,7 @@ Insectcide_plot
 ```
 
 ### Leaps
+The purpose of the leaps library is to perform best subset selection and see which variables tend to have the largest affect on the response variable.
 ```{r}
 summary(regsubsets( apisAb ~ eiqB11 + eiqB11.np	+ eiqB11.fun	+ eiqB11.ins +	eiqB11.ins.np +	
                       eiqB11F.pre	+ eiqB11F.blm	+ eiqB11F.pos	+ eiqB11I.pre	+ eiqB11I.blm	+ 

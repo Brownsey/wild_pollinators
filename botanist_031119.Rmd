@@ -6,7 +6,7 @@ output: pdf_document
 ---
 
 ## Introduction
-Questions on Bees in Orchards study. But in particular, I'd like to know your opinion on the subsetting of the data for the purpose of the decision models, in particularly if there were any "obvious" ways to model it to start with. The data itself, doesn't seem to be great in my opinion for model building as it's quite hard to see how we can extract relationships that are that meaningful out of for the following reasons: The values of all the pesticides e.t.c are the same for each orchard at each visit occasion (All the values are the same each day for each year, which I find hard to believe) and obviously the bee abundance and richness levels vary alot depending on the visit but all the values are the same for these parameters (I ran best subsets regression on the the dataset and these values were the most significant which I also thought was odd as I was expecting bloom and temperature to have a significant affect as these are the only ones which change for each visit). Am I also right in thinking: richness is diversity of bee species and abundance is number of bees - in which case would you look at them combined or separately or just 1 of them when building the models ( I can model all scenarios but wondered what atleast would be your recommendation of starting point.) I have decided to only take the data from 2012 but in terms of further subsetting your opinion would be appreciated. In the data we have the pesticide levels, but these are never 0. So in the specification that Julia sent me done by the botanist it mentioned something along the lines of *Three isolated time periods which I would be interested in: Before Bloom, During Bloom and After Bloom.  Before bloom decision points: apply fungicide, apply insecticide, apply both and apply  neither. During bloom decision points: apply fungicide, apply insecticide, apply thinner, apply two of the three, apply all, apply nothing. After bloom decision points: apply insecticide, apply thinner, apply both, apple nothing. These can be visualised by the diagram below*. But from the data we have I don't quite see how I could follow this and extract this data to use for the purpose of modelling and wander the next best way to approach it. Perhaps a very simplified approach with the actual data and then a theoretically application if I had data on it? Not really sure how to approach the modellign side of things if I'm perfectly honest.
+The code in this .rmd was used for the discussion with the botanist on the 03/11/2019. It also contains extra EDA on top of the EDA already undertaken as part of the exploratory_data.rmd file
 ```{r libraries, results= "hide", message=F, warning=F, echo = FALSE}
 library(tidyverse)
 library(ggmap)
@@ -69,6 +69,7 @@ The variables in general are very correlated, as you would expect, but this mean
 Not that clear in a .pdf but lots are upwards of 0.8/0.9 correlated.
 
 ### GGTally
+Takes about 5-10 mins to run - produces all the various correlation and associated plots between variables
 ```{r, echo = FALSE}
 #bees_data <- ggpairs(data = data, columns = 7:13, title = "Bees Data")
 #bees_data
@@ -163,8 +164,7 @@ bloom_plot_2012
 
 
 ## Graphics from botanists chat
-Another thing: Instead of the last figure with violin plots about bloom for region/day, could you do a scatter plot visualising the relationship between day 1 and day 2 bloom index? 
-y=day 1 bloom index versus x=day 2 index You can put all the all the three regions into the same scatter plot, using a different colour/plotting characters for each region.
+Extra graphics and analysis undertaken based on the chat with the botanist to see relationships.
 ```{r, echo = FALSE, warning=FALSE}
 group_day_data <-  day_data %>%
   group_by(region, day) %>%
@@ -203,7 +203,9 @@ day_1_2 <- by_day %>%
   theme_bw()
 day_1_2
 ```
-The first step for us is to understand the chemicals applications better, including the combinations. The variables in the data are actually scores developed by the authors that capture the impact the have, so that is quite ready to use and comparable. (See Park et al for details.)
+
+
+The first step for us is to understand the chemicals applications better, including the combinations. The variables in the data are  scores developed by the authors that capture the impact the have, so that is quite ready to use and comparable, need to further investigate this.
 ```{r, echo = FALSE, warning=FALSE}
 fungicide_vs_insecticide <- function(data,y,y1,  title){
   data %>%
@@ -251,7 +253,7 @@ ex2 <- hist_plot("eiqB11I.blm")
 
 #a <- grid.arrange(temperature_plot, honey_temp, ex1,ex2, nrow = 2)
 ``` 
-Looking at kmeans for clustering of orchards to decide on decision model.
+Looking at kmeans for clustering of orchards to decide on decision model, using Kmeans for now to generate the outputs quickly as an EDA approach to clustering.
 
 ```{r, echo = FALSE, warning=FALSE}
 #Can probably put all kmeans into this datatype and sort it that way
@@ -385,14 +387,11 @@ for(i in 1:7){
 ### Objective 1b/c/1d further models and analysis
 After speaking with botanist, no predefined appraoch will be taken.
 All the models will be created using a data driven approach, so going to look at some different clustering methods fitted using the 19 orchards as the data and then compare the different models and clustering methods.
-From the Kmeans analysis above, the different seed returning differing clusterings is not ideal, so some different approaches will be looked at. It is also clear that more factors need to be taken into account in the clustering process rather than just the insecticide and pesticide levels. Also pamk and knee/elbow method will be used to decide the number of clusters.
-
-
-New variables to be added into the clustering diagrams: 
-
-Insecticide and Pesticide and type of surroundings.
+From the Kmeans analysis above, the different seed returning differing clusterings is not ideal, so some different approaches will be looked at. It is also clear that more factors need to be taken into account in the clustering process rather than just the insecticide and pesticide levels.
 
 #### Version 2
+
+Taking the above method a little further to look at different distance metric and add in X2000nat as another variable.
 
 ```{r}
 cluster_2_data <- data_2012 %>%
@@ -436,7 +435,7 @@ fviz_nbclust(NbClust(cluster_2_data %>% select(ends_with(".pos"), X2000nat), dis
 ```
 
 
-Step 1: shows for all the data and pre bloom stage = 3 clusters is best out of our cluster range considered. Come back to this
+Step 1: shows for all the data and pre bloom stage = 3 clusters is best out of our cluster range considered. 
 ```{r}
 #Applying agglomerative clustering with 3 clusters:
 clustered <- agnes(dist(cluster_2_data, method = "euclidian"), 
@@ -529,11 +528,10 @@ fviz_nbclust(NbClust(cluster_2_data , distance="euclidean",
 
 hclust(cluster_2_data)
 ```
-There is just enough data to use this clustering technique at each stage of the clustering process sadly.
-
-
+There is just not enough data to use this clustering technique at each stage of the clustering process in a good format, so will need to ensure that sparsity is taken into consideration as a main downside to clustering methods
 
 ### Variable justification
+Code to decide upon the bee variables to take into consideration for the final response variables.
 ```{r}
 bee_correlations <- data.frame(matrix(0, nrow = 0, ncol = 0))
 

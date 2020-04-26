@@ -1,6 +1,5 @@
+#R script to generate an extra image for the app
 library(tidyverse)
-
-
 data <- tibble(method = c("Maximum Linkage standardised",
                           "Euclidean Linkage standardised",
                           "Decision Agglomerative standardised",
