@@ -6,7 +6,7 @@ output: pdf_document
 ---
 
 ## Introduction
-The code in this .rmd was used for the discussion with the botanist on the 03/11/2019. It also contains extra EDA on top of the EDA already undertaken as part of the exploratory_data.rmd file
+The code in this .rmd was used for the discussion with the botanist on the 03/11/2019. It also contains extra EDA on top of the EDA already undertaken as part of the exploratory_data.rmd file. At the latter end the first EDA for clustering was undertaken, the clustering EDA which has utilised in the rest of the project has remained uncommented. Some method were considered but didn't work as desired and have been commented out but the code kept in to demonstrate the thought process - the clustering.rmd  the full code for the clustering analysis.
 ```{r libraries, results= "hide", message=F, warning=F, echo = FALSE}
 library(tidyverse)
 library(ggmap)
@@ -391,7 +391,7 @@ From the Kmeans analysis above, the different seed returning differing clusterin
 
 #### Version 2
 
-Taking the above method a little further to look at different distance metric and add in X2000nat as another variable.
+Taking the above method a little further to look at different distance metric and add in X2000nat as another variable, this is the clustering options that were reporting for the naive kmeans method. And is the EDA clustering which is reported in the final analysis report. All the commented out clustering code was written to try and determine future methodology but ultimately was not used. It has been kept in as it shows the thought process behind looking and testing other methods but ultimately didn't work in a good way.
 
 ```{r}
 cluster_2_data <- data_2012 %>%
@@ -435,100 +435,100 @@ fviz_nbclust(NbClust(cluster_2_data %>% select(ends_with(".pos"), X2000nat), dis
 ```
 
 
-Step 1: shows for all the data and pre bloom stage = 3 clusters is best out of our cluster range considered. 
+Step 1: shows for all the data and pre bloom stage = 3 clusters is best out of our cluster range considered. This analysis was useful for determining the end method but ultimately was not really used, so has been commented out. All the clustering code which was of benefit and used can be seen in the clustering .rmd.
 ```{r}
 #Applying agglomerative clustering with 3 clusters:
-clustered <- agnes(dist(cluster_2_data, method = "euclidian"), 
-                   diss=TRUE, method = "ward")
+#clustered <- agnes(dist(cluster_2_data, method = "euclidian"), 
+                  # diss=TRUE, method = "ward")
 # add cluster labels to the training data
-cluster_2_data$cluster <- cutree(clustered, k=3)
-cl2_bloom <- vector(length = 3)
-#so doesn't work with subclusters 2 and 3
-for(i in 1:3){
-  cl2_bloom[i] <- fviz_nbclust(NbClust(cluster_2_data %>% filter(cluster == i) %>% select(ends_with(".blm"),
-                              X2000nat), distance="euclidian", min.nc=2, max.nc=4, method="ward.D2", index="all"))
-}
+#cluster_2_data$cluster <- cutree(clustered, k=3)
+# cl2_bloom <- vector(length = 3)
+# #so doesn't work with subclusters 2 and 3
+# for(i in 1:3){
+#   cl2_bloom[i] <- fviz_nbclust(NbClust(cluster_2_data %>% filter(cluster == i) %>% select(ends_with(".blm"),
+#                               X2000nat), distance="euclidian", min.nc=2, max.nc=4, method="ward.D2", index="all"))
+# }
 
 
-fviz_nbclust(NbClust(cluster_2_data %>% filter(cluster == 2) %>% select(ends_with(".blm"), X2000nat), distance="euclidean", 
-                                min.nc=2, max.nc=4, method="ward.D2", index="all"))
-
-
-hclust(cluster_2_data)
+# fviz_nbclust(NbClust(cluster_2_data %>% filter(cluster == 2) %>% select(ends_with(".blm"), X2000nat), distance="euclidean", 
+#                                 min.nc=2, max.nc=4, method="ward.D2", index="all"))
+# 
+# 
+# hclust(cluster_2_data)
 ```
 
 Now from though process, only the variables that should be included in the clustering should be the pesticides: insecticide/pesticide/thinner e.t.c
 
 ```{r}
-cluster_2_data <- data_2012 %>%
-  select(ends_with(".pre"),ends_with(".blm"), ends_with(".pos")) %>%
-  unique()
-
-
-#Clusters of whole data combined - 7
-fviz_nbclust(NbClust(cluster_2_data, distance="euclidean", 
-                                min.nc=2, max.nc=4, method="ward.D2", index="all"))
-#pre ~ max of 4 clusters at each time point in method, but  in general if you allow
-#More as this argument then more returned a better  optimal cluster number
-fviz_nbclust(NbClust(cluster_2_data %>% select(ends_with(".pre")), distance="euclidean", 
-                                min.nc=2, max.nc=4, method="ward.D2", index="all"))
-#during
-fviz_nbclust(NbClust(cluster_2_data %>% select(ends_with(".blm")), distance="euclidean", 
-                                min.nc=2, max.nc=4, method="ward.D2", index="all"))
-#post
-fviz_nbclust(NbClust(cluster_2_data %>% select(ends_with(".pos")), distance="euclidean", 
-                                min.nc=2, max.nc=4, method="ward.D2", index="all"))
-
-
-#######Subsetting the data down by cluster results in the matrices being singular and therefore the code doesn't
-#run as expected, this could be looked at in detail however, since there are so few data points
-#it is not ideal to have a really sparse cluster set in reality
-
-#Testing
-fviz_nbclust(NbClust(cluster_2_data %>%  filter(cluster == 1) %>% select(ends_with(".pos")), distance="euclidean", 
-                                min.nc=2, max.nc=4, method="ward.D2", index="all"))
-
-cluster_2_data <- cluster_2_data %>%  mutate_all(function(x) ifelse(x == 0, runif(1, 0.00000000001,0.0000001), x))
-
-fviz_nbclust(NbClust(cluster_2_data %>%  filter(cluster == 2) %>% select(ends_with(".pos")), distance="euclidean", 
-                                min.nc=2, max.nc=4, method="ward.D2", index="all"))
-
-bleh <- agnes(dist(cluster_2_data %>%  filter(cluster == 2) %>% select(ends_with(".blm")), method = "euclidian"), 
-                   diss=TRUE, method = "ward")
-
-cluster_2_data$cluster <- cutree(bleh, k=2)
-
-fviz_nbclust(NbClust(cluster_2_data %>%  filter(cluster == 2) %>% select(ends_with(".blm")), distance="euclidean", 
-                                min.nc=1, max.nc=3, method="ward.D2", index="all"))
-
-
-a <- matrix(c(0,1,1,0), nrow=2)
-
-#Checks
-fviz_nbclust(cluster_2_data %>% filter(cluster == 2)%>% select(ends_with(".blm")),pam , method = "silhouette")
-
-
-clustered <- agnes(dist(cluster_2_data, method = "euclidian"), 
-                   diss=TRUE, method = "ward")
-# add cluster labels to the training data
-cluster_2_data$cluster <- cutree(clustered, k=3)
-cl2_bloom <- vector(length = 3)
-#so doesn't work with subclusters 2 and 3
-for(i in 1:3){
-  cl2_bloom[i] <- fviz_nbclust(NbClust(cluster_2_data %>% filter(cluster == i)%>% select(ends_with(".blm")), distance="euclidean", 
-                                min.nc=1, max.nc= min(table(cluster_2_data$cluster))
-                                , method="ward.D2", index="all"))
-}
-
-
-fviz_nbclust(NbClust(cluster_2_data , distance="euclidean", 
-                                min.nc=2, max.nc=min(table(cluster_2_data$cluster))
-                     , method="ward.D2", index="all"))
-
-
-hclust(cluster_2_data)
+# cluster_2_data <- data_2012 %>%
+#   select(ends_with(".pre"),ends_with(".blm"), ends_with(".pos")) %>%
+#   unique()
+# 
+# 
+# #Clusters of whole data combined - 7
+# fviz_nbclust(NbClust(cluster_2_data, distance="euclidean", 
+#                                 min.nc=2, max.nc=4, method="ward.D2", index="all"))
+# #pre ~ max of 4 clusters at each time point in method, but  in general if you allow
+# #More as this argument then more returned a better  optimal cluster number
+# fviz_nbclust(NbClust(cluster_2_data %>% select(ends_with(".pre")), distance="euclidean", 
+#                                 min.nc=2, max.nc=4, method="ward.D2", index="all"))
+# #during
+# fviz_nbclust(NbClust(cluster_2_data %>% select(ends_with(".blm")), distance="euclidean", 
+#                                 min.nc=2, max.nc=4, method="ward.D2", index="all"))
+# #post
+# fviz_nbclust(NbClust(cluster_2_data %>% select(ends_with(".pos")), distance="euclidean", 
+#                                 min.nc=2, max.nc=4, method="ward.D2", index="all"))
+# 
+# 
+# #######Subsetting the data down by cluster results in the matrices being singular and therefore the code doesn't
+# #run as expected, this could be looked at in detail however, since there are so few data points
+# #it is not ideal to have a really sparse cluster set in reality
+# 
+# #Testing
+# fviz_nbclust(NbClust(cluster_2_data %>%  filter(cluster == 1) %>% select(ends_with(".pos")), distance="euclidean", 
+#                                 min.nc=2, max.nc=4, method="ward.D2", index="all"))
+# 
+# cluster_2_data <- cluster_2_data %>%  mutate_all(function(x) ifelse(x == 0, runif(1, 0.00000000001,0.0000001), x))
+# 
+# fviz_nbclust(NbClust(cluster_2_data %>%  filter(cluster == 2) %>% select(ends_with(".pos")), distance="euclidean", 
+#                                 min.nc=2, max.nc=4, method="ward.D2", index="all"))
+# 
+# test <- agnes(dist(cluster_2_data %>%  filter(cluster == 2) %>% select(ends_with(".blm")), method = "euclidian"), 
+#                    diss=TRUE, method = "ward")
+# 
+# cluster_2_data$cluster <- cutree(bleh, k=2)
+# 
+# fviz_nbclust(NbClust(cluster_2_data %>%  filter(cluster == 2) %>% select(ends_with(".blm")), distance="euclidean", 
+#                                 min.nc=1, max.nc=3, method="ward.D2", index="all"))
+# 
+# 
+# a <- matrix(c(0,1,1,0), nrow=2)
+# 
+# #Checks
+# fviz_nbclust(cluster_2_data %>% filter(cluster == 2)%>% select(ends_with(".blm")),pam , method = "silhouette")
+# 
+# 
+# clustered <- agnes(dist(cluster_2_data, method = "euclidian"), 
+#                    diss=TRUE, method = "ward")
+# # add cluster labels to the training data
+# cluster_2_data$cluster <- cutree(clustered, k=3)
+# cl2_bloom <- vector(length = 3)
+# #so doesn't work with subclusters 2 and 3
+# for(i in 1:3){
+#   cl2_bloom[i] <- fviz_nbclust(NbClust(cluster_2_data %>% filter(cluster == i)%>% select(ends_with(".blm")), distance="euclidean", 
+#                                 min.nc=1, max.nc= min(table(cluster_2_data$cluster))
+#                                 , method="ward.D2", index="all"))
+# }
+# 
+# 
+# fviz_nbclust(NbClust(cluster_2_data , distance="euclidean", 
+#                                 min.nc=2, max.nc=min(table(cluster_2_data$cluster))
+#                      , method="ward.D2", index="all"))
+# 
+# 
+# hclust(cluster_2_data)
 ```
-There is just not enough data to use this clustering technique at each stage of the clustering process in a good format, so will need to ensure that sparsity is taken into consideration as a main downside to clustering methods
+There is just not enough data to use this clustering technique at each stage of the clustering process in a good format, so will need to ensure that sparsity is taken into consideration as a main downside to clustering methods and these considerations will be properly exaimined in the clustering.rmd. The code here has been been kept as it was important for the future as it demonstrated why some methods wouldn't work adequately. But commented out as not "useful".
 
 ### Variable justification
 Code to decide upon the bee variables to take into consideration for the final response variables.
