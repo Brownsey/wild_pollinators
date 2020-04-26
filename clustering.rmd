@@ -357,12 +357,12 @@ It is known that temperature affects the speed at which bees fly, as such this w
 wild_bee_abundance_agglom <- data_2012 %>%
   inner_join(orchard_node_agglom) %>%
   ggplot(aes(x = temp, y = log(wildAbF + 1))) +
-  geom_point(aes(colour = as_factor(node))) +
+  geom_point(aes(colour = as_factor(node- 7))) +
   geom_smooth() +
   geom_smooth(method = "lm", colour = "red") +
-  labs(x = "Temperature", y = "Wild Bee Abundance (log(x) + 1)",
-       title = "Wild Bee Abundance Coloured by Agglomerature Nodes",
-       colour = "Agglomerative clustering nodes") +
+  labs(x = expression("Temperature " ( degree*C)), y = "Wild Bee Abundance (log(x + 1))",
+      # title = "Wild Bee Abundance Coloured by Agglomerature Nodes",
+       colour = "Agglomerative\nClustering\nNode") +
   theme_bw() 
 wild_bee_abundance_agglom  
 
@@ -373,9 +373,9 @@ wild_bee_abundance_kmeans <- data_2012 %>%
   geom_point(aes(colour = as_factor(node))) +
   geom_smooth() +
   geom_smooth(method = "lm", colour = "red") +
-  labs(x = "Temperature", y = "Wild Bee Abundance (log(x) + 1)",
-       title = "Wild Bee Abundance Coloured by Kmeans Nodes",
-       colour = "Kmeans clustering nodes") +
+  labs(x = expression("Temperature " ( degree*C)), y = "Wild Bee Abundance (log(x) + 1)",
+       #title = "Wild Bee Abundance Coloured by Kmeans Nodes",
+       colour = "Kmeans clustering node") +
   theme_bw() 
 wild_bee_abundance_kmeans  
 
@@ -394,12 +394,12 @@ adjusted_data <- data_2012 %>%
 
 wild_bee_abundance_agglom_adjusted <- adjusted_data %>%
   ggplot(aes(x = temp, y = adjusted_bees)) +
-  geom_point(aes(colour = as_factor(node))) +
+  geom_point(aes(colour = as_factor(node - 7))) +
   geom_smooth() +
   geom_smooth(method = "lm", colour = "red") +
-  labs(x = "Temperature", y = "Adjusted Wild Bee Abundance (log(x) + 1)",
-       title = "Wild Bee Abundance Coloured by Agglomerature Nodes",
-       colour = "Agglomerative clustering nodes") +
+  labs(x = expression("Temperature " ( degree*C)), y = "Adjusted Wild Bee Abundance (log(x + 1))",
+      # title = "Wild Bee Abundance Coloured by Agglomerature Nodes",
+       colour = "Agglomerative\nClustering\nNode") +
   theme_bw() 
 wild_bee_abundance_agglom_adjusted 
 
@@ -528,12 +528,18 @@ tidy(t.test(adjusted_bees ~ day, logged_data, var.equal = TRUE, paired = TRUE))
 ### Bloom
 First it shall be graphed to see if there is any obvious correlation.
 ```{r}
-logged_data %>%
-  ggplot(aes(x = bloom.index, y = adjusted_bees)) +
+
+data_2012 %>%
+  inner_join(orchard_node_agglom) %>%
+  ggplot(aes(x = bloom.index, y = log(wildAbF + 1))) +
   geom_smooth() +
   geom_smooth(method = "lm", colour = "red") + 
   theme_bw() +  
-  geom_point()
+  geom_point(aes(colour = as_factor(node - 7))) +
+  labs(x = "Bloom Index (%)", y = "Adjusted Wild Bee Abundance (log(x + 1))",
+      # title = "Wild Bee Abundance Coloured by Agglomerature Nodes",
+       colour = "Agglomerative\nClustering\nNode") 
+
 ```
 There doesn't seem to be any obvious correlation, but just to be sure I'll split the bloom into thee categories and test these with an Anova test.
 ```{r}

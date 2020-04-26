@@ -42,6 +42,7 @@ ui <-  fluidPage(
   
   navbarPage(title = "Wild Pollinators Application", 
              tabPanel("Protocol Summaries",
+                      h4("This page demonstrates the affects of differing pesticide protocols have on the bee abundance and richness observations for wild pollinators"),
                  fluidRow(
                    
                    column(2,
@@ -120,6 +121,7 @@ ui <-  fluidPage(
                          
                        )
             ), tabPanel("Distance Metric and Linkage Function selection",
+                        h4("This page demonstrates the performance of different linkage functions and distance metrics on the orchard data, the closer the number is to 1 the better the performance of that particular combination."),
                         fluidRow(
                           
                           column(2,
@@ -136,6 +138,7 @@ ui <-  fluidPage(
                           )),
             
             tabPanel("Clustering",
+                     h4("This page shows the clustering outputs for each clustering method considered"),
                       fluidRow(
                        column(3,
                               selectInput("clustering", "Select clustering method",
@@ -181,9 +184,9 @@ ui <-  fluidPage(
             # ),
 
 tabPanel("About Page",
-         h4("This Project was undertaken by Stephen Brownsey and Supervised by Julia Brettschneider from the University of Warwick"),
-         h4("Each tab of the application demonstrates various aspects of the analysis undertaken"),
-         h4(HTML(paste("All code used in the project as well as making the application can be found at:", a(href="https://github.com/Brownsey/wild_pollinators", "link"), "."))),
+         h4("This Project was undertaken by Stephen Brownsey and Supervised by Julia Brettschneider from the University of Warwick."),
+         h4("Each tab of the application demonstrates various aspects of the analysis undertaken, with interactive plots and tables to showcase the findings."),
+         h4(HTML(paste("All code used in the project as well as for this application can be found on the project's GitHub page:", a(href="https://github.com/Brownsey/wild_pollinators", "link"), "."))),
          h4(HTML(paste("The original paper on which the analysis is based on can be found at:", a(href="https://royalsocietypublishing.org/doi/pdf/10.1098/rspb.2015.0299", "link"), ".")))
         
 
