@@ -45,7 +45,7 @@ lat_long <- data %>%
   select(lat,long,both_years) %>%
   distinct()
 
-register_google(key = "AIzaSyB9Hpt0vTWrALpm0iUyJxW6C2IuHZylpC8")
+register_google(key = "Notforyoureyes")
 map <- get_map(location = c(lon = mean(lat_long$lon), lat = mean(lat_long$lat)), zoom = 9,
                       maptype = "satellite", scale = 2)
 
