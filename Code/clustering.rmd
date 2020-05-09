@@ -1,0 +1,1835 @@
+---
+title: "clustering"
+author: "Stephen Brownsey"
+date: "25/12/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(warning = FALSE)
+```
+
+```{r libraries, results= "hide", message=F, warning=F, echo = FALSE}
+library(tidyverse)
+library(GGally)
+library(gridExtra)
+library(class)
+library(cluster)
+library(clValid)
+library(modeest)
+library(broom)
+library(car)
+library(pvclust)
+library(NbClust)
+library(factoextra)
+library(cluster)
+library(ggfortify)
+```
+
+## Introduction
+
+The code in this .rmd file covers the analysis undertaken into which clusters methods perform best, given the sparse orchard data. All the Machine learning principles are applied in this section file as well as any extra exploratory data analysis. All the main findings were reported in the final dissertation report, although there are some extra exploratory data analysis and interim steps in this .rmd which are not significant enough to warrant making it to the final report. The process is repeated for both standardised and non-standardised data
+
+### Looking at a Markov Approach
+This section is going cover two step clustering based on various clustering methods for comparison.
+In these scenarios each implementation will have a maximum of 8 clusters. Two after pre-bloom, 4 after and 8 after post bloom.
+Of these 8 final clusters it is expected that some may be sparse with no orchards in
+```{r}
+load("data")
+markov_data <- data_2012 %>%
+  select(ends_with(".pre"), ends_with(".blm"), ends_with(".pos"), orchard) %>%
+  unique()
+
+#Standardising the data for purpose of clustering
+
+markov_data <- markov_data %>%
+  mutate(eiqB11F.pre = (eiqB11F.pre - mean(eiqB11F.pre))/sd(eiqB11F.pre)) %>%
+  mutate(eiqB11I.pre= (eiqB11I.pre - mean(eiqB11I.pre))/sd(eiqB11I.pre)) %>%
+  mutate(eiqB11F.blm = (eiqB11F.blm - mean(eiqB11F.blm))/sd(eiqB11F.blm)) %>%
+  mutate(eiqB11I.blm = (eiqB11I.blm - mean(eiqB11I.blm))/sd(eiqB11I.blm)) %>%
+  mutate(eiqB11T.blm= (eiqB11T.blm - mean(eiqB11T.blm))/sd(eiqB11T.blm)) %>%
+  mutate(eiqB11F.pos = (eiqB11F.pos - mean(eiqB11F.pos))/sd(eiqB11F.pos)) %>%
+  mutate(eiqB11I.pos = (eiqB11I.pos - mean(eiqB11I.pos))/sd(eiqB11I.pos)) %>%
+  mutate(eiqB11T.pos = (eiqB11T.pos - mean(eiqB11T.pos))/sd(eiqB11T.pos))
+
+#function to generate the agglomaerative clustering
+aggl <- function(data){
+  agnes(dist(data, method = "euclidian"), 
+                   diss=TRUE, method = "ward")
+}
+
+#function to reduce copy pasting for each node
+aggl_c <- function(data, ends, c_num){
+  #define temp dataset of this stage by cluster
+    temp <- data %>%
+    filter(cluster == c_num) %>%
+    select(ends_with(ends))
+    
+#If statement as if 1 element in dataset it'll error    
+if(nrow(temp) > 1){
+  temp$cluster <- cutree(aggl(temp) , k = 2)
+  
+   output <- data %>% 
+    filter(cluster == c_num) %>%
+    select(-cluster) %>%
+    mutate(cluster = temp$cluster)
+   #Else statement for if 1 element in dataset
+  }else{
+    #If only 1 element in the dataset -> set the cluster number to 1
+    output <- data %>% 
+      filter(cluster == c_num) %>%
+      select(-cluster) %>%
+      mutate(cluster = 1)
+  }
+  output
+}
+
+
+####Agglomerative heirachicale clustering
+#pre-bloom step
+temp <- markov_data %>%
+  select(ends_with(".pre"))
+  
+temp$cluster <- cutree(aggl(temp) , k = 2)
+
+aggl_node1 <- markov_data %>% 
+  mutate(cluster = temp$cluster)
+
+#during bloom step 1
+aggl_node2 <- aggl_c(aggl_node1, ".blm", 1)
+  
+#during bloom step 2
+aggl_node3 <- aggl_c(aggl_node1, ".blm", 2)
+
+
+#post bloom step 1
+aggl_node4 <- aggl_c(aggl_node2, ".pos", 1)
+  
+#post bloom step 2
+aggl_node5 <- aggl_c(aggl_node2, ".pos", 2)
+
+#post bloom step 3
+aggl_node6 <- aggl_c(aggl_node3, ".pos", 1)
+  
+#post bloom step 4
+#Note this node only has 1 element in it so it is automatically set to 1
+aggl_node7 <- aggl_c(aggl_node3, ".pos", 2)
+
+orchard_node_agglom <- tibble(orchard = aggl_node4 %>% filter(cluster == 1) %>% select(orchard) %>% as_vector, node = 8) %>%
+  bind_rows(tibble(orchard = aggl_node4 %>% filter(cluster == 2) %>% select(orchard) %>% as_vector, node = 9 )) %>%
+  bind_rows(tibble(orchard = aggl_node5 %>% filter(cluster == 1) %>% select(orchard) %>% as_vector, node = 10)) %>%
+  bind_rows(tibble(orchard = aggl_node5 %>% filter(cluster == 2) %>% select(orchard) %>% as_vector, node = 11)) %>%
+  bind_rows(tibble(orchard = aggl_node6 %>% filter(cluster == 1) %>% select(orchard) %>% as_vector, node = 12)) %>%
+  bind_rows(tibble(orchard = aggl_node6 %>% filter(cluster == 2) %>% select(orchard) %>% as_vector, node = 13)) %>%
+  bind_rows(tibble(orchard = aggl_node7 %>% filter(cluster == 1) %>% select(orchard) %>% as_vector, node = 14))
+```
+
+kmeans approach: Even running the 1001 times it is different everytime.
+
+```{r}
+#function to generate the kmeans clustering
+k_clustering <- function(data, n = 1001){
+#creating the dataset to then calculate the optimal cluster from  
+  for(i in 1:n){
+  if(i == 1){
+     k_list <- tibble(kmeans(data, 2)$cluster)
+  }else{
+     k_list <- bind_cols(k_list, tibble(kmeans(data, 2)$cluster))
+  }
+  
+  }
+  apply(k_list[ ,1:length(k_list)], 1, mfv1) %>% 
+    enframe(value = "cluster") %>%
+    select(cluster)
+}
+#pre-bloom step
+#Getting the most common clustering 
+
+kmeans_c <- function(data, ends, c_num){
+  
+  data <- data %>%
+    filter(cluster == c_num) %>%
+    select(-cluster)
+  
+  if(nrow(data) > 2){
+    temp <- data  %>%
+    select(ends_with(ends))
+  
+  cluster <- k_clustering(temp, 2)
+ output <- bind_cols(data, cluster)
+  }else{
+    #Not more than 2 rows and get the error message as:
+    #number of cluster centres must lie between 1 and nrow(x)
+    output <- data %>%
+      mutate(cluster = 1)
+  }
+
+ output
+}
+
+
+temp <- k_clustering(markov_data %>% select(-orchard))
+
+kmeans_node1 <- markov_data %>% 
+  bind_cols(temp)
+
+
+#during bloom step 1
+kmeans_node2 <- kmeans_c(kmeans_node1, ".blm", 1)
+  
+#during bloom step 2
+kmeans_node3 <- kmeans_c(kmeans_node1, ".blm", 2)
+
+
+#post bloom step 1
+kmeans_node4 <- kmeans_c(kmeans_node2, ".pos", 1)
+  
+#post bloom step 2
+kmeans_node5 <- kmeans_c(kmeans_node2, ".pos", 2)
+
+#post bloom step 3
+kmeans_node6 <- kmeans_c(kmeans_node3, ".pos", 1)
+  
+#post bloom step 4
+kmeans_node7 <- kmeans_c(kmeans_node3, ".pos", 2)
+
+#End timepoint nodes
+orchard_node_kmeans <- tibble(orchard = kmeans_node4 %>% filter(cluster == 1) %>% select(orchard) %>% as_vector, node = 8) %>%
+  bind_rows(tibble(orchard = kmeans_node4 %>% filter(cluster == 2) %>% select(orchard) %>% as_vector, node = 9 )) %>%
+  bind_rows(tibble(orchard = kmeans_node5 %>% filter(cluster == 1) %>% select(orchard) %>% as_vector, node = 10)) %>%
+  bind_rows(tibble(orchard = kmeans_node5 %>% filter(cluster == 2) %>% select(orchard) %>% as_vector, node = 11)) %>%
+  bind_rows(tibble(orchard = kmeans_node6 %>% filter(cluster == 1) %>% select(orchard) %>% as_vector, node = 12)) %>%
+  bind_rows(tibble(orchard = kmeans_node6 %>% filter(cluster == 2) %>% select(orchard) %>% as_vector, node = 13)) %>% 
+  bind_rows(tibble(orchard = kmeans_node7 %>% filter(cluster == 1) %>% select(orchard) %>% as_vector, node = 14)) %>%
+  bind_rows(tibble(orchard = kmeans_node7 %>% filter(cluster == 2) %>% select(orchard) %>% as_vector, node = 15))
+```
+
+Just a look at the difference in the final clusters between the two methods
+```{r}
+clusterings <- orchard_node_agglom %>%
+  arrange(orchard) %>%
+  bind_cols(node_km = orchard_node_kmeans %>% arrange(orchard) %>%
+              select(node) %>% as_vector)
+clusterings
+
+```
+Looking at top two PCAs just to see how much variation is absorbed by these
+```{r}
+p1 <- autoplot(pam(markov_data, 3), frame = TRUE) +
+  theme_bw() +
+  ggtitle("pam, with frame")
+
+p2 <- autoplot(clara(markov_data, 3), frame = TRUE,frame.type = 'norm') +
+  theme_bw() +
+  ggtitle("clara, with a probability ellipse")
+
+grid.arrange(p1, p2 ,nrow = 1)
+```
+
+## Non-markov structuring
+This section will approach looking at the data as one time point with 1 clustering point rather than 3 as above:
+Method Justification - Maximum linkage function is best for both standardised and unstandardised.
+```{r}
+maximum_cluster <- data_2012 %>%
+  arrange(orchard) %>%
+  select(ends_with(".pre"),ends_with(".blm"), ends_with(".pos")) %>%
+  filter(row_number() %% 2 == 1)  %>%
+  mutate(eiqB11F.pre = (eiqB11F.pre - mean(eiqB11F.pre))/sd(eiqB11F.pre)) %>%
+  mutate(eiqB11I.pre= (eiqB11I.pre - mean(eiqB11I.pre))/sd(eiqB11I.pre)) %>%
+  mutate(eiqB11F.blm = (eiqB11F.blm - mean(eiqB11F.blm))/sd(eiqB11F.blm)) %>%
+  mutate(eiqB11I.blm = (eiqB11I.blm - mean(eiqB11I.blm))/sd(eiqB11I.blm)) %>%
+  mutate(eiqB11T.blm= (eiqB11T.blm - mean(eiqB11T.blm))/sd(eiqB11T.blm)) %>%
+  mutate(eiqB11F.pos = (eiqB11F.pos - mean(eiqB11F.pos))/sd(eiqB11F.pos)) %>%
+  mutate(eiqB11I.pos = (eiqB11I.pos - mean(eiqB11I.pos))/sd(eiqB11I.pos)) %>%
+  mutate(eiqB11T.pos = (eiqB11T.pos - mean(eiqB11T.pos))/sd(eiqB11T.pos))
+
+euclidean_cluster <- maximum_cluster
+  
+# matrix of methods to compare,
+#rerun - without %>%mutate segment for non-standardised values
+m <- c( "average", "single", "complete", "ward")
+names(m) <- c( "average", "single", "complete", "ward")
+distances <- c("euclidean", "maximum", "manhattan", "canberra", 
+               "minkowski")
+names(distances) <- c("euclidean", "maximum", "manhattan", 
+                      "canberra", "minkowski")
+clust_comps <- matrix(nrow = length(distances), ncol = length(m), 
+                      dimnames = list(distances,m))
+# function to compute coefficient to see which is the best method
+ac <- function(distance, linkage) {
+  dista <- dist(maximum_cluster , method = distance)
+  #Agglomerative Nesting form of Hierarchical Clustering
+  agnes(dista, method = linkage)$ac
+}
+for(i in 1:length(distances)) {
+  for(j in 1:length(m)) {
+    clust_comps[i,j] <- ac(distances[i], m[j])
+  }
+}
+
+#In future or in write up, perhaps change, needs more clustering analysis
+#Look at literature in more detail to see other benefits/drawbacks and assumptions
+#Then decide on actual best method, for now using euclidian as used that before
+standardised_clust_comps <- clust_comps
+```
+Clustering code - Maximum
+```{r}
+#NBclust function breaks when using index = all, instead using all the working indexes instead
+fviz_nbclust(NbClust(maximum_cluster, distance = "maximum", 
+                                min.nc = 2, max.nc = 8, method = "ward.D2", index = c("kl", "ch", "ccc", "cindex","db", "silhouette", "duda", "pseudot2", "ptbiserial", "gap","mcclain","gamma", "gplus", "tau")))
+
+#Agglomerative clustering 
+clustered <- agnes(dist(maximum_cluster, method = "maximum"), 
+                   diss=TRUE, method = "ward")
+# add cluster labels to the training data
+maximum_cluster$cluster <- cutree(clustered, k = 2)
+
+maximum_cluster
+
+#Clustering summaries based on non-markov approach (Before Adjustment)
+maximum_non_markov_clusters <- data_2012 %>%
+  group_by(orchard) %>%
+  summarise(mean_honey_ab = mean(apisAb),
+            mean_wild_ab = mean(wildAbF),
+            mean_social_rich = mean(socialRichF)) %>% 
+  mutate(cluster = maximum_cluster$cluster)  %>%
+  group_by(cluster) %>%
+  summarise(mean_honey_ab = mean(mean_honey_ab),
+            mean_wild_ab = mean(mean_wild_ab),
+            mean_social_rich = mean(mean_social_rich),
+            n = n())
+
+```
+Clustering code - euclidean
+
+```{r}
+#Clusters of whole data combined - 7 - breaks sometimes with euclidean bit weird but maybe another justification method as to why 4 clusters?
+#Euclidean clusters.
+fviz_nbclust(NbClust(euclidean_cluster, distance = "euclidean", 
+                     min.nc = 2, max.nc = 8, method = "ward.D2", index = "all"))
+#Agglomerative clustering 
+clustered <- agnes(dist(euclidean_cluster, method = "euclidean"), 
+                   diss=TRUE, method = "ward")
+# add cluster labels to the training data - 8 proposed2 and 7 proposed 5
+euclidean_cluster$cluster <- cutree(clustered, k = 5)
+
+euclidean_cluster
+
+#Clustering summaries based on non-markov approach (Before Adjustment)
+euclidean_non_markov_clusters <- data_2012 %>%
+  group_by(orchard) %>%
+  summarise(mean_honey_ab = mean(apisAb),
+            mean_wild_ab = mean(wildAbF),
+            mean_social_rich = mean(socialRichF)) %>% 
+  mutate(cluster = euclidean_cluster$cluster)  %>%
+  group_by(cluster) %>%
+  summarise(mean_honey_ab = mean(mean_honey_ab),
+            mean_wild_ab = mean(mean_wild_ab),
+            mean_social_rich = mean(mean_social_rich),
+            n = n())
+```
+
+
+### Variable justification
+```{r}
+bee_correlations <- data.frame(matrix(0, nrow = 0, ncol = 0))
+
+for(i in 1:7){
+  for(j in 1:7){
+  bee_correlations[i,j] <- round(cor(data_2012[5+i], data_2012[5 + j]), 2)
+  }
+}
+for(i in 1:7){
+ names(bee_correlations)[i] <- colnames(data_2012[5 +i])
+}
+bee_correlations
+```
+This demonstrates that to consider the affects on wild bees, just two variables need to be considered as there is very high correlation between the outcomes. WildAbF accounts a .9+ correlation with all wild variables except for the for the solitary bee variable. Then for  this SocialRichF could be used.
+
+## Updating the bee values to match the environments
+In this particular analysis, the interest is in the affects of pesticides on bee population. As such, it is necessary to correct, as best we can, for extra factors (confounding?) to make the bee values representative.
+
+All these graphs were plotted as part of EDA by the use of lapply to the a basic plotting function. Here the relationships between some of the main extra factors (whether they are confounding or not) will be examined.
+
+##### Temperature
+It is known that temperature affects the speed at which bees fly, as such this will have an effect on bee abundance and possibly richness although more bees might not necessarily mean more species are observed. From the previous analysis carried out it is known that a log(x) + 1 transposition of bee count allows for a "better" model fit and as such in general this will the case for our observations.
+```{r}
+##agglom
+wild_bee_abundance_agglom <- data_2012 %>%
+  inner_join(orchard_node_agglom) %>%
+  ggplot(aes(x = temp, y = log(wildAbF + 1))) +
+  geom_point(aes(colour = as_factor(node- 7))) +
+  geom_smooth() +
+  geom_smooth(method = "lm", colour = "red") +
+  labs(x = expression("Temperature " ( degree*C)), y = "Wild Bee Abundance (log(x + 1))",
+      # title = "Wild Bee Abundance Coloured by Agglomerature Nodes",
+       colour = "Agglomerative\nClustering\nNode") +
+  theme_bw() 
+wild_bee_abundance_agglom  
+
+##kmeans
+wild_bee_abundance_kmeans <- data_2012 %>%
+  inner_join(orchard_node_kmeans) %>%
+  ggplot(aes(x = temp, y = log(wildAbF + 1))) +
+  geom_point(aes(colour = as_factor(node))) +
+  geom_smooth() +
+  geom_smooth(method = "lm", colour = "red") +
+  labs(x = expression("Temperature " ( degree*C)), y = "Wild Bee Abundance (log(x) + 1)",
+       #title = "Wild Bee Abundance Coloured by Kmeans Nodes",
+       colour = "Kmeans clustering node") +
+  theme_bw() 
+wild_bee_abundance_kmeans  
+
+##Linear model
+lm_temp <- lm(log(data_2012$wildAbF + 1) ~  data_2012$temp)
+temp_factor <- tidy(lm_temp) %>%
+  slice(2) %>%
+  select(estimate) %>%
+  as_vector()
+
+#Adjusting bee value as though temp is always 20
+adjusted_data <- data_2012 %>%
+  inner_join(clusterings) %>%
+  mutate(adjusted_bees = (((20 - temp) * temp_factor) + log(wildAbF + 1)))
+
+
+wild_bee_abundance_agglom_adjusted <- adjusted_data %>%
+  ggplot(aes(x = temp, y = adjusted_bees)) +
+  geom_point(aes(colour = as_factor(node - 7))) +
+  geom_smooth() +
+  geom_smooth(method = "lm", colour = "red") +
+  labs(x = expression("Temperature " ( degree*C)), y = "Adjusted Wild Bee Abundance (log(x + 1))",
+      # title = "Wild Bee Abundance Coloured by Agglomerature Nodes",
+       colour = "Agglomerative\nClustering\nNode") +
+  theme_bw() 
+wild_bee_abundance_agglom_adjusted 
+
+```
+
+##### X2000nat
+Based on previous research undertaken in the original paper it is known that the X2000nat variable has an effect on the the bee count so it also necessary to adjust for this. Wher Again the value will be adjust as though the X2000nat variable is constant. In this case the mean will be chosen as the constant value and the bee count will be adjusted for this in the same way as above. 
+
+
+```{r}
+wild_bee_abundance_agglom_x2000 <- adjusted_data %>%
+  ggplot(aes(x = X2000nat, y = adjusted_bees)) +
+  geom_point(aes(colour = as_factor(node))) +
+  geom_smooth() +
+  geom_smooth(method = "lm", colour = "red") +
+  labs(x = "X2000nat", y = "Adjusted Wild Bee Abundance (log(x) + 1)",
+       title = "Wild Bee Abundance Coloured by Agglomerature Nodes",
+       colour = "Agglomerative clustering nodes") +
+  theme_bw() 
+wild_bee_abundance_agglom_x2000
+
+#Outcome is 0.388
+mean_x2000 <- adjusted_data %>%
+  summarise(mean_x2000 = mean(X2000nat)) %>%
+  as_vector()
+
+
+lm_X2000nat <- lm(adjusted_data$adjusted_bees ~  adjusted_data$X2000nat)
+X2000_factor <- tidy(lm_X2000nat) %>%
+  slice(2) %>%
+  select(estimate) %>%
+  as_vector()
+
+#Adjusting the data for this variable
+
+adjusted_data <- adjusted_data %>%
+  mutate(adjusted_bees = ((mean_x2000 - X2000nat) * X2000_factor) + adjusted_bees)
+```
+So if you look at them individually, it can only be adjusted for one. So need to combine a linear model of all *affecting* factors to best adjust at the end. 
+
+## Analysising other potential confounders
+This section will look at finding other parameters to include in the bee variable, dataset used at this point is the original just with the bee variable considered going through a log(x + 1) transformation. The only bee variable to be considered at this point is the wild bee abundance, in future more could be considered in this way or it would be expected to be similar for all bee variables and I could just use the variables decided upon in this way for all the bee variables considered.
+
+### Local Diversity
+The aim here is to whether adding local diversity as a adjustment factor is going to be beneficial or not. This will be achieved by running a F test to see whether the variances are equal, a shapiro test to confirm the bee data can be assumed to be normal. Note, independence assumption is not validated, this is due more than 1 result being used from each orchard, I decided to include these as I thought the extra power gained from twice the observations was worth the penalty of this assumption.
+```{r}
+#When adding temperature in other variables have an effect
+logged_data <- data_2012 %>%
+  inner_join(clusterings) %>%
+  mutate(adjusted_bees = (((20 - temp) * temp_factor) + log(wildAbF + 1)))
+
+#Just logged
+logged_data <- data_2012 %>%
+  inner_join(clusterings) %>%
+  mutate(adjusted_bees = log(wildAbF + 1))
+
+#X2000nat adjustment
+logged_data <- data_2012 %>%
+  inner_join(clusterings) %>%
+  mutate(adjusted_bees = log(wildAbF + 1))%>%
+  mutate(adjusted_bees = ((mean_x2000 - X2000nat) * X2000_factor) + adjusted_bees)
+
+
+#Testing underlying normal data assumption, again demonstrating why the transformation is neccessary:
+#Not normal
+shapiro.test(logged_data$wildAbF)
+#After transformation -> normal
+shapiro.test(logged_data$adjusted_bees)
+#Checking if the two subsets have the same variance have the same variance
+#Outcome shows that they can be assumed to have the same variance as p.value > 0,05
+simple <- logged_data %>% filter(local.diversity == 0) %>% select(adjusted_bees) %>% as_vector()
+diverse <- logged_data %>% filter(local.diversity == 1) %>% select(adjusted_bees) %>% as_vector()
+tidy(var.test(simple, diverse)) %>%
+  select(statistic, p.value)
+#Performing a two sample t-test on the data to see whether they are the same.
+#Since H0: Means the same, H1: means are different ~ p.value not significant
+
+#This implies local.diversity does NOT have an effect on the original bee counts.
+#I thought this was an interesting point and worth noting, same happens with Region.
+tidy(t.test(wildAbF ~ local.diversity, logged_data, var.equal = TRUE))
+
+#However the the adjusted version of bee count does list local diversity
+#as a factor which has an effect on the log transformed bee counts
+tidy(t.test(adjusted_bees ~ local.diversity, logged_data, var.equal = TRUE))
+
+```
+From This analysis, it can be concluded that local.diversity does NOT play a factor in bee count
+### Region
+Region has 3 possible options - as such an ANOVA test will be used to see whether there is a difference between the means in wild abundance based on region.
+
+```{r}
+#Checking Anova assumption that the variances are the same
+# H0: Variances the same: H1: Atleast one variance is different
+leveneTest(adjusted_bees ~ region, data = logged_data)
+#Since pr > 0.05 we can assume variances are the same
+
+#Running the anova  test
+anova1 <- aov(adjusted_bees ~ region, data = logged_data)
+
+summary(anova1)
+#probablity shows that region is not an affecting factor to  wildAbF
+
+#Checking that the following anova assumption is TRUE:
+#Residuals of the response variable are normally distributed is NOT true
+shapiro.test(residuals(anova1))
+```
+
+### Day
+Looking at the day to see whether that also has an effect, since the data can be paired by day 1 and day 2 a paired t-test will be carried out on this to test whether there is a difference in bee count.
+When using just the X2000nat variable, then it becomes very close to significant.
+
+```{r}
+day_1 <- logged_data %>% filter(day == 1) %>% select(adjusted_bees) %>% as_vector()
+day_2 <- logged_data %>% filter(day == 2) %>% select(adjusted_bees) %>% as_vector()
+#This demonstrates that the variances come from the same distribution:
+tidy(var.test(day_1, day_2)) %>%
+  select(statistic, p.value)
+
+#Hence we can run a paired t-test with equal variances
+tidy(t.test(adjusted_bees ~ day, logged_data, var.equal = TRUE, paired = TRUE))
+#Bit surprising but it demonstrates that there is no statistical significance between days
+#So combining values to start with is probably appropriate
+```
+
+
+### Bloom
+First it shall be graphed to see if there is any obvious correlation.
+```{r}
+
+data_2012 %>%
+  inner_join(orchard_node_agglom) %>%
+  ggplot(aes(x = bloom.index, y = log(wildAbF + 1))) +
+  geom_smooth() +
+  geom_smooth(method = "lm", colour = "red") + 
+  theme_bw() +  
+  geom_point(aes(colour = as_factor(node - 7))) +
+  labs(x = "Bloom Index (%)", y = "Adjusted Wild Bee Abundance (log(x + 1))",
+      # title = "Wild Bee Abundance Coloured by Agglomerature Nodes",
+       colour = "Agglomerative\nClustering\nNode") 
+
+```
+There doesn't seem to be any obvious correlation, but just to be sure I'll split the bloom into thee categories and test these with an Anova test.
+```{r}
+logged_data <- logged_data %>%
+          mutate(bloom_category = if_else(bloom.index <= 33, 1,
+                                  if_else(bloom.index <= 66, 2, 3)))
+
+#Running the anova  test
+anova1 <- aov(adjusted_bees ~ bloom_category, data = logged_data)
+summary(anova1)
+#As expected there is no evidence to suggest that bloom index (category)
+#Has an effect on the bee counts (although only 1 DF in bloom_category thought it should be 2??)
+
+```
+
+Bloom is a continuous variable but for the sakes of deciding whether to include it or not
+
+### Final Confounders
+Based on the analysis above, the confounders that could be taken into account are:
+Region and local diversity based on the statistical tests, temperature and X2000nat based on the literature.
+```{r}
+#Checking the variables to see if any are heavily correlated (binary/categorical ones won't be)
+#So checking other two  and we get a low correlation so acceptable to use them together
+cor(logged_data$temp, logged_data$X2000nat)
+
+f_lm <- lm(adjusted_bees ~ temp + X2000nat + local.diversity + region, data = logged_data)
+#Interesting values here seem to suggest that only significant one is X2000nat
+summary(f_lm)
+```
+
+
+Notes, from running the adjustments: When you use temperature as an original adjustment, only significant one in the model is X2000nat and when you use X2000nat in the original data only significant one is temp. When you use neither and just apply the linear model on the logged data then both temp and nat are significant -> suggesting that just these two variables would be best to adjust by. This suggest to me that fitting a joint lm using both temp and X2000nat to adjust the data is probably best to avoid overfitting and keep the model as parsimonious as possible. Despite region and local.diversity being significant for temp adjustment originally, unlikely to be worth implementing but could be considered to cover model changes section. To take this further, could apply lasso regression on the full dataset to see what that comes up with as tends to have a lower MSE than a standard LM.
+
+```{r}
+#Using the logged_data with no adjustments
+logged_data <- data_2012 %>%
+  inner_join(clusterings) %>%
+  mutate(adjusted_bees = log(wildAbF + 1)) %>%
+  mutate(adjusted_social = log(socialRichF + 1))
+
+#Looking at the model ~ only X2000nat and temp significant
+lm(adjusted_bees ~ temp + X2000nat + local.diversity + region + day +  bloom.index, data = logged_data) %>%
+  summary
+
+#Defining linear model with temp and X2000nat as factors
+temp_nat_lm <- tidy(lm(adjusted_bees ~ temp + X2000nat, data = logged_data))
+#Extracting temp and nat estimate values
+temp_factor <- temp_nat_lm %>%
+  select(estimate) %>% 
+  slice(2) %>% 
+  as_vector()
+nat_factor <- temp_nat_lm %>% 
+  select(estimate) %>% 
+  slice(3) %>%
+  as_vector()
+
+#Now adjustments shall be made for these two variables:
+#Temperature will be set to 20 degrees
+#X2000 nat will be set to the meean x2000 nat value
+temp_nat_adjusted <- logged_data %>% 
+  mutate(adjusted_bees = (adjusted_bees + ((20 - temp) * temp_factor) + ((mean_x2000 - X2000nat) * X2000_factor) ))
+
+#Checking that after the adjustment they are not significant at all in the model
+tidy(lm(adjusted_bees ~ temp + X2000nat, data = temp_nat_adjusted))
+#As expected now the bee abundance has been adjusted for these two parameters
+```
+The same process can be applied to the variable SocialRichF, the other bee variable which needs to be considered.
+Since we know that only temp and nat were statistic on the wildAbF we can go straight to the LM and test that (May need to check this with Julia, if not just cp previous analsysis...)
+
+
+
+```{r}
+#Looking at the model ~ only X2000nat significant
+lm(adjusted_social ~ temp + X2000nat + local.diversity + region + day +  bloom.index, data = logged_data) %>%
+  summary
+social_lm<- tidy(lm(adjusted_social ~ X2000nat, data = logged_data))
+
+social_nat_factor <- social_lm %>% 
+  select(estimate) %>% 
+  slice(2) %>%
+  as_vector()
+
+#Adjustment for social added
+temp_nat_adjusted <- temp_nat_adjusted %>%
+  mutate(adjusted_social = (adjusted_social + ((mean_x2000 - X2000nat) * X2000_factor)))
+
+```
+
+## Clustering Summarising
+Functions involved with summarising the clusters:
+```{r}
+#Gets the name of a variable as a string ~ now implemented in clusterise but keeping
+get_name <- function(x) {
+  deparse(substitute(x))
+}
+
+#Gets the bee variables that I am summarising for each cluster - makes it easy to change in future
+clusterise <- function(bee_data, cluster_data, v_name = deparse(substitute(cluster_data))){
+  inner_join(bee_data, cluster_data) %>%
+    summarise(mean_honey_ab = mean(mean_honey_ab),
+              mean_wild_ab = mean(mean_wild_ab),
+              mean_social_rich = mean(mean_social_rich),
+              n = n()) %>%
+    mutate(cluster = v_name)
+}
+
+#The function to output the summaries of both agglom and kmeans clustering
+cluster_summarise <- function(bee_data){
+output <- list()
+  
+output$agglom_bees <- clusterise(bee_data, aggl_node1) %>%
+  bind_rows(clusterise(bee_data, aggl_node2)) %>%
+  bind_rows(clusterise(bee_data, aggl_node3)) %>%
+  bind_rows(clusterise(bee_data, aggl_node4)) %>%
+  bind_rows(clusterise(bee_data, aggl_node5)) %>%
+  bind_rows(clusterise(bee_data, aggl_node6)) %>%
+  bind_rows(clusterise(bee_data, aggl_node7)) %>%
+  bind_rows(clusterise(bee_data, aggl_node4 %>% filter(cluster == 1), "agglom_node8")) %>%
+  bind_rows(clusterise(bee_data, aggl_node4 %>% filter(cluster == 2), "agglom_node9")) %>%
+  bind_rows(clusterise(bee_data, aggl_node5 %>% filter(cluster == 1), "agglom_node10")) %>%
+  bind_rows(clusterise(bee_data, aggl_node5 %>% filter(cluster == 2), "agglom_node11")) %>%
+  bind_rows(clusterise(bee_data, aggl_node6 %>% filter(cluster == 1), "agglom_node12")) %>%
+  bind_rows(clusterise(bee_data, aggl_node6 %>% filter(cluster == 2), "agglom_node13")) %>%
+  #Only 1 result for cluster as none in the latter cluster
+  #Unable to to bind as no common variables for an empty node15
+  bind_rows(clusterise(bee_data, aggl_node7 %>% filter(cluster == 1), "agglom_node14")) 
+
+
+output$kmeans_bees <- clusterise(bee_data, kmeans_node1) %>%
+  bind_rows(clusterise(bee_data, kmeans_node2)) %>%
+  bind_rows(clusterise(bee_data, kmeans_node3)) %>%
+  bind_rows(clusterise(bee_data, kmeans_node4)) %>%
+  bind_rows(clusterise(bee_data, kmeans_node5)) %>%
+  bind_rows(clusterise(bee_data, kmeans_node6)) %>%
+  bind_rows(clusterise(bee_data, kmeans_node7)) %>%
+  bind_rows(clusterise(bee_data, kmeans_node4 %>% filter(cluster == 1), "kmeans_node8")) %>%
+  bind_rows(clusterise(bee_data, kmeans_node4 %>% filter(cluster == 2), "kmeans_node9")) %>%
+  bind_rows(clusterise(bee_data, kmeans_node5 %>% filter(cluster == 1), "kmeans_node10")) %>%
+  bind_rows(clusterise(bee_data, kmeans_node5 %>% filter(cluster == 2), "kmeans_node11")) %>%
+  bind_rows(clusterise(bee_data, kmeans_node6 %>% filter(cluster == 1), "kmeans_node12")) %>%
+  bind_rows(clusterise(bee_data, kmeans_node6 %>% filter(cluster == 2), "kmeans_node13")) %>%
+  bind_rows(clusterise(bee_data, kmeans_node7 %>% filter(cluster == 1), "kmeans_node14")) %>%
+  bind_rows(clusterise(bee_data, kmeans_node7 %>% filter(cluster == 2), "kmeans_node15"))
+
+#Return a list containing two tibbles one for each type of clustering algorithm
+output
+}
+```
+
+Original summarising without any variable correction
+```{r, message = FALSE}
+#original Bee data (logged has no changes to it)
+bee_values <- logged_data %>%
+  group_by(orchard) %>%
+  summarise(mean_honey_ab = mean(apisAb),
+            mean_wild_ab = mean(adjusted_bees),
+            mean_social_rich = mean(adjusted_social)
+            )
+
+original_bee_summary <- cluster_summarise(bee_data = bee_values)
+
+#Agglom
+original_bee_summary$agglom_bees
+
+#Kmeans
+original_bee_summary$kmeans_bees
+
+##Original summarising of non-markov approach
+maximum_cluster
+
+#Clustering summaries based on non-markov approach
+non_markov_clusters <-  logged_data %>%
+  group_by(orchard) %>%
+  summarise(mean_honey_ab = mean(apisAb),
+            mean_wild_ab = mean(adjusted_bees),
+            mean_social_rich = mean(adjusted_social)) %>% 
+  mutate(cluster = maximum_cluster$cluster)  %>%
+  group_by(cluster) %>%
+  summarise(mean_honey_ab = mean(mean_honey_ab),
+            mean_wild_ab = mean(mean_wild_ab),
+            mean_social_rich = mean(mean_social_rich),
+            n = n())
+```
+After Adjustment:
+```{r, message = FALSE}
+adjusted_bee_values <- temp_nat_adjusted %>%
+  group_by(orchard) %>%
+  summarise(mean_honey_ab = mean(apisAb),
+            mean_wild_ab = mean(adjusted_bees),
+            mean_social_rich = mean(adjusted_social)
+            )
+
+adjusted_bee_summary <- cluster_summarise(bee_data = adjusted_bee_values)
+
+#Agglom
+adjusted_bee_summary$agglom_bees
+
+#Kmeans
+adjusted_bee_summary$kmeans_bees
+
+
+##Non-Markov
+##Maximum
+#Clustering summaries based on non-markov approach
+maximum_non_markov_clusters <-  temp_nat_adjusted %>%
+  group_by(orchard) %>%
+  summarise(mean_honey_ab = mean(apisAb),
+            mean_wild_ab = mean(adjusted_bees),
+            mean_social_rich = mean(adjusted_social)) %>% 
+  mutate(cluster = maximum_cluster$cluster)  %>%
+  group_by(cluster) %>%
+  summarise(mean_honey_ab = mean(mean_honey_ab),
+            mean_wild_ab = mean(mean_wild_ab),
+            mean_social_rich = mean(mean_social_rich),
+            n= n())
+
+##euclidean:
+euclidean_non_markov_clusters <-  temp_nat_adjusted %>%
+  group_by(orchard) %>%
+  summarise(mean_honey_ab = mean(apisAb),
+            mean_wild_ab = mean(adjusted_bees),
+            mean_social_rich = mean(adjusted_social)) %>% 
+  mutate(cluster = euclidean_cluster$cluster)  %>%
+  group_by(cluster) %>%
+  summarise(mean_honey_ab = mean(mean_honey_ab),
+            mean_wild_ab = mean(mean_wild_ab),
+            mean_social_rich = mean(mean_social_rich),
+            n= n())
+```
+Although honey bee abundance is one of the summarised variables, this is likely to be related directly to the hive.acr variable.
+
+Comparing cluster values before and after adjustments, for now just looking at the agglomerative node clustering selection as it is, in my opinion, better than Kmeans.
+```{r}
+##agglom
+adjusted_bee_summary$agglom_bees %>%
+  select(mean_wild_ab, mean_social_rich ,cluster) %>% 
+  rename(adjusted = mean_wild_ab) %>%
+  rename(adjusted_social = mean_social_rich) %>%
+  inner_join(original_bee_summary$agglom_bees %>%
+               select(mean_wild_ab, mean_social_rich, cluster)) %>%
+  select(cluster,mean_wild_ab, adjusted, mean_social_rich, adjusted_social)
+```
+I guess potentially can see two *paths* one with a mean slightly lower than the other if you think of the structure.
+
+### Looking at clusters
+The aim of this section is to look at the clusterings from a low, medium, high point of view...
+
+```{r}
+#Non_markov clustering summary maximum
+maximum_final_standardised <- maximum_cluster %>% 
+  group_by(cluster) %>%
+  summarise_all(funs(mean)) %>%
+  inner_join(maximum_non_markov_clusters)
+
+#Non_markov clustering summary maximum
+euclidean_final_standardised <- euclidean_cluster %>% 
+  group_by(cluster) %>%
+  summarise_all(funs(mean)) %>%
+  inner_join(euclidean_non_markov_clusters)
+
+#Cluster 1 -> Low insecticide, High Fungicide, low thinner
+#Cluster 2 -> High insecticide, Low Fungicide, low (no) thinner
+#Cluster 3 -> middle insecticide, High Fungicide,  low thinner
+#Cluster 4 -> Low insecticide, High Fungicide, High thinner
+
+#Agglom clustering summary (end stage)
+
+bee_summary_agglom <- adjusted_bee_summary$agglom_bees %>%
+  slice(8:14) %>%
+  select(-cluster) %>%
+  mutate(cluster = c(1,2,3,4,5,6,7))
+
+
+pesticide_summary_agglom <- aggl_c(aggl_node2, ".pos", 1)  %>%
+  bind_rows(aggl_c(aggl_node2, ".pos", 2) %>%
+  mutate(cluster = if_else(cluster == 1, 3, 4))) %>%
+  bind_rows(aggl_c(aggl_node3, ".pos", 1)%>%
+  mutate(cluster = if_else(cluster == 1, 5, 6))) %>%
+  bind_rows(aggl_c(aggl_node3, ".pos", 2)%>%
+  mutate(cluster = if_else(cluster ==1, 7, 8))) %>%
+  group_by(cluster) %>%
+  summarise_all(funs(mean))
+
+
+##
+agglom_summary_standardised <- bee_summary_agglom %>%
+  inner_join(pesticide_summary_agglom) %>%
+  select(-orchard)
+  # select(-orchard) %>%
+  # #1 for high, 0 for low, just using bloom
+  # mutate(pest_rating = c(0,0,1,1,0,0,1)) %>%
+  # mutate(insect_rating = c(1,0,1,0,0,1,1)) %>%
+  # mutate(thinner_rating = c(1,0,0,1,0,1,0))
+
+
+
+bee_summary_kmeans <- adjusted_bee_summary$kmeans_bees %>%
+  slice(8:14) %>%
+  select(-cluster) %>%
+  mutate(cluster = c(1,2,3,4,5,6,7))
+
+
+pesticide_summary_kmeans <- aggl_c(kmeans_node2, ".pos", 1)  %>%
+  bind_rows(aggl_c(kmeans_node2, ".pos", 2) %>%
+  mutate(cluster = if_else(cluster == 1, 3, 4))) %>%
+  bind_rows(aggl_c(kmeans_node3, ".pos", 1)%>%
+  mutate(cluster = if_else(cluster == 1, 5, 6))) %>%
+  bind_rows(aggl_c(kmeans_node3, ".pos", 2)%>%
+  mutate(cluster = if_else(cluster ==1, 7, 8))) %>%
+  group_by(cluster) %>%
+  summarise_all(funs(mean))
+
+
+##
+kmeans_summary_standardised <- bee_summary_kmeans %>%
+  inner_join(pesticide_summary_kmeans) %>%
+  select(-orchard)
+
+
+
+#write.csv(agglom_summary, "agglom_summary.csv")
+
+#Overall
+#HLH
+#HHL
+#HHL
+#HLH
+#LLL
+#LHH
+#LLL
+
+#Just Bloom
+#LHH
+#LLL
+#HHL
+#HLH
+#LLL
+#LHH
+#HHL
+
+##Just bloom and just fungicide and insecticide
+```
+
+
+
+
+
+
+
+
+
+
+
+### Looking at the difference between standardised data and non-standardised data: This section is non-standardised
+write up explanation of aggregation before vs after, conditional probabilities along with the tree would be a good idea
+This section is going cover two step clustering based on various clustering methods for comparison.
+Visit data will be combined into one bee result for each orchard, note in principle this is fundementally flawed as the data does depend on previous years and the assumption that independent of the past is false as pesticide last year affects bee population this year as would be expected. In these scenarios each implementation will have a maximum of 8 clusters. Two after pre-bloom, 4 after and 8 after post bloom.
+```{r}
+load("data")
+markov_data <- data_2012 %>%
+  select(ends_with(".pre"), ends_with(".blm"), ends_with(".pos"), orchard) %>%
+  unique()
+#function to generate the agglomaerative clustering
+aggl <- function(data){
+  agnes(dist(data, method = "euclidian"), 
+                   diss=TRUE, method = "ward")
+}
+
+#function to reduce copy pasting for each node
+aggl_c <- function(data, ends, c_num){
+  #define temp dataset of this stage by cluster
+    temp <- data %>%
+    filter(cluster == c_num) %>%
+    select(ends_with(ends))
+    
+#If statement as if 1 element in dataset it'll error    
+if(nrow(temp) > 1){
+  temp$cluster <- cutree(aggl(temp) , k = 2)
+  
+   output <- data %>% 
+    filter(cluster == c_num) %>%
+    select(-cluster) %>%
+    mutate(cluster = temp$cluster)
+   #Else statement for if 1 element in dataset
+  }else{
+    #If only 1 element in the dataset -> set the cluster number to 1
+    output <- data %>% 
+      filter(cluster == c_num) %>%
+      select(-cluster) %>%
+      mutate(cluster = 1)
+  }
+  output
+}
+
+
+####Agglomerative heirachicale clustering
+#pre-bloom step
+temp <- markov_data %>%
+  select(ends_with(".pre"))
+  
+temp$cluster <- cutree(aggl(temp) , k = 2)
+
+aggl_node1 <- markov_data %>% 
+  mutate(cluster = temp$cluster)
+
+#during bloom step 1
+aggl_node2 <- aggl_c(aggl_node1, ".blm", 1)
+  
+#during bloom step 2
+aggl_node3 <- aggl_c(aggl_node1, ".blm", 2)
+
+
+#post bloom step 1
+aggl_node4 <- aggl_c(aggl_node2, ".pos", 1)
+  
+#post bloom step 2
+aggl_node5 <- aggl_c(aggl_node2, ".pos", 2)
+
+#post bloom step 3
+aggl_node6 <- aggl_c(aggl_node3, ".pos", 1)
+  
+#post bloom step 4
+#Note this node only has 1 element in it so it is automatically set to 1
+aggl_node7 <- aggl_c(aggl_node3, ".pos", 2)
+
+orchard_node_agglom <- tibble(orchard = aggl_node4 %>% filter(cluster == 1) %>% select(orchard) %>% as_vector, node = 8) %>%
+  bind_rows(tibble(orchard = aggl_node4 %>% filter(cluster == 2) %>% select(orchard) %>% as_vector, node = 9 )) %>%
+  bind_rows(tibble(orchard = aggl_node5 %>% filter(cluster == 1) %>% select(orchard) %>% as_vector, node = 10)) %>%
+  bind_rows(tibble(orchard = aggl_node5 %>% filter(cluster == 2) %>% select(orchard) %>% as_vector, node = 11)) %>%
+  bind_rows(tibble(orchard = aggl_node6 %>% filter(cluster == 1) %>% select(orchard) %>% as_vector, node = 12)) %>%
+  bind_rows(tibble(orchard = aggl_node6 %>% filter(cluster == 2) %>% select(orchard) %>% as_vector, node = 13)) %>%
+  bind_rows(tibble(orchard = aggl_node7 %>% filter(cluster == 1) %>% select(orchard) %>% as_vector, node = 14))
+```
+
+kmeans approach: Even running the 1001 times it is different everytime: store output later on but run it like 1million times at each stage.
+
+```{r}
+#function to generate the kmeans clustering
+k_clustering <- function(data, n = 1001){
+#creating the dataset to then calculate the optimal cluster from  
+  for(i in 1:n){
+  if(i == 1){
+     k_list <- tibble(kmeans(data, 2)$cluster)
+  }else{
+     k_list <- bind_cols(k_list, tibble(kmeans(data, 2)$cluster))
+  }
+  
+  }
+  apply(k_list[ ,1:length(k_list)], 1, mfv1) %>% 
+    enframe(value = "cluster") %>%
+    select(cluster)
+}
+#pre-bloom step
+#Getting the most common clustering 
+
+kmeans_c <- function(data, ends, c_num){
+  
+  data <- data %>%
+    filter(cluster == c_num) %>%
+    select(-cluster)
+  
+  if(nrow(data) > 2){
+    temp <- data  %>%
+    select(ends_with(ends))
+  
+  cluster <- k_clustering(temp, 2)
+ output <- bind_cols(data, cluster)
+  }else{
+    #Not more than 2 rows and get the error message as:
+    #number of cluster centres must lie between 1 and nrow(x)
+    output <- data %>%
+      mutate(cluster = 1)
+  }
+
+ output
+}
+
+
+temp <- k_clustering(markov_data %>% select(-orchard))
+
+kmeans_node1 <- markov_data %>% 
+  bind_cols(temp)
+
+
+#during bloom step 1
+kmeans_node2 <- kmeans_c(kmeans_node1, ".blm", 1)
+  
+#during bloom step 2
+kmeans_node3 <- kmeans_c(kmeans_node1, ".blm", 2)
+
+
+#post bloom step 1
+kmeans_node4 <- kmeans_c(kmeans_node2, ".pos", 1)
+  
+#post bloom step 2
+kmeans_node5 <- kmeans_c(kmeans_node2, ".pos", 2)
+
+#post bloom step 3
+kmeans_node6 <- kmeans_c(kmeans_node3, ".pos", 1)
+  
+#post bloom step 4
+kmeans_node7 <- kmeans_c(kmeans_node3, ".pos", 2)
+
+#End timepoint nodes
+orchard_node_kmeans <- tibble(orchard = kmeans_node4 %>% filter(cluster == 1) %>% select(orchard) %>% as_vector, node = 8) %>%
+  bind_rows(tibble(orchard = kmeans_node4 %>% filter(cluster == 2) %>% select(orchard) %>% as_vector, node = 9 )) %>%
+  bind_rows(tibble(orchard = kmeans_node5 %>% filter(cluster == 1) %>% select(orchard) %>% as_vector, node = 10)) %>%
+  bind_rows(tibble(orchard = kmeans_node5 %>% filter(cluster == 2) %>% select(orchard) %>% as_vector, node = 11)) %>%
+  bind_rows(tibble(orchard = kmeans_node6 %>% filter(cluster == 1) %>% select(orchard) %>% as_vector, node = 12)) %>%
+  bind_rows(tibble(orchard = kmeans_node6 %>% filter(cluster == 2) %>% select(orchard) %>% as_vector, node = 13)) %>% 
+  bind_rows(tibble(orchard = kmeans_node7 %>% filter(cluster == 1) %>% select(orchard) %>% as_vector, node = 14)) %>%
+  bind_rows(tibble(orchard = kmeans_node7 %>% filter(cluster == 2) %>% select(orchard) %>% as_vector, node = 15))
+```
+
+Just a look at the difference in the final clusters between the two methods
+```{r}
+clusterings <- orchard_node_agglom %>%
+  arrange(orchard) %>%
+  bind_cols(node_km = orchard_node_kmeans %>% arrange(orchard) %>%
+              select(node) %>% as_vector)
+clusterings
+```
+Looking at top two PCAs just to see how much variation is absorbed by these
+```{r}
+p1 <- autoplot(pam(markov_data, 3), frame = TRUE) +
+  theme_bw() +
+  ggtitle("pam, with frame")
+
+p2 <- autoplot(clara(markov_data, 3), frame = TRUE,frame.type = 'norm') +
+  theme_bw() +
+  ggtitle("clara, with a probability ellipse")
+
+grid.arrange(p1, p2 ,nrow = 1)
+```
+
+## Non-markov structuring
+This section will approach looking at the data as one time point with 1 clustering point rather than 3 as above:
+Method Justification - Maximum linkage function is best for both standardised and unstandardised.
+```{r}
+maximum_cluster <- data_2012 %>%
+  arrange(orchard) %>%
+  select(ends_with(".pre"),ends_with(".blm"), ends_with(".pos")) %>%
+  filter(row_number() %% 2 == 1) 
+
+euclidean_cluster <- maximum_cluster
+  
+# matrix of methods to compare,
+#rerun - without %>%mutate segment for non-standardised values
+m <- c( "average", "single", "complete", "ward")
+names(m) <- c( "average", "single", "complete", "ward")
+distances <- c("euclidean", "maximum", "manhattan", "canberra", 
+               "minkowski")
+names(distances) <- c("euclidean", "maximum", "manhattan", 
+                      "canberra", "minkowski")
+clust_comps <- matrix(nrow = length(distances), ncol = length(m), 
+                      dimnames = list(distances,m))
+# function to compute coefficient to see which is the best method
+ac <- function(distance, linkage) {
+  dista <- dist(maximum_cluster , method = distance)
+  #Agglomerative Nesting form of Hierarchical Clustering
+  agnes(dista, method = linkage)$ac
+}
+for(i in 1:length(distances)) {
+  for(j in 1:length(m)) {
+    clust_comps[i,j] <- ac(distances[i], m[j])
+  }
+}
+
+#In future or in write up, perhaps change, needs more clustering analysis
+#Look at literature in more detail to see other benefits/drawbacks and assumptions
+#Then decide on actual best method, for now using euclidian as used that before
+clust_comps = clust_comps
+```
+Clustering code - Maximum
+```{r}
+#NBclust function breaks when using index = all, instead using all the working indexes instead
+fviz_nbclust(NbClust(maximum_cluster, distance = "maximum", 
+                                min.nc = 2, max.nc = 8, method = "ward.D2", index = c("kl", "ch", "ccc", "cindex","db", "silhouette", "duda", "pseudot2", "ptbiserial", "gap","mcclain","gamma", "gplus", "tau")))
+
+#Agglomerative clustering 
+clustered <- agnes(dist(maximum_cluster, method = "maximum"), 
+                   diss=TRUE, method = "ward")
+# add cluster labels to the training data - 5 say 2 and 4 say 8... needs more thinking about
+maximum_cluster$cluster <- cutree(clustered, k = 8)
+
+maximum_cluster
+
+#Clustering summaries based on non-markov approach (Before Adjustment)
+maximum_non_markov_clusters <- data_2012 %>%
+  group_by(orchard) %>%
+  summarise(mean_honey_ab = mean(apisAb),
+            mean_wild_ab = mean(wildAbF),
+            mean_social_rich = mean(socialRichF)) %>% 
+  mutate(cluster = maximum_cluster$cluster)  %>%
+  group_by(cluster) %>%
+  summarise(mean_honey_ab = mean(mean_honey_ab),
+            mean_wild_ab = mean(mean_wild_ab),
+            mean_social_rich = mean(mean_social_rich),
+            n= n())
+```
+Clustering code - euclidean
+
+```{r}
+#Clusters of whole data combined - 7 - breaks sometimes with euclidean bit weird but maybe another justification method as to why 4 clusters?
+#Euclidean clusters.
+fviz_nbclust(NbClust(euclidean_cluster, distance = "euclidean", 
+                     min.nc = 2, max.nc = 8, method = "ward.D2", index = "all"))
+#Agglomerative clustering 
+clustered <- agnes(dist(euclidean_cluster, method = "euclidean"), 
+                   diss=TRUE, method = "ward")
+# add cluster labels to the training data
+euclidean_cluster$cluster <- cutree(clustered, k = 4)
+
+euclidean_cluster
+
+#Clustering summaries based on non-markov approach (Before Adjustment)
+#Cluster numbers are 6 ,4 ,3 ,6
+euclidean_non_markov_clusters <- data_2012 %>%
+  group_by(orchard) %>%
+  summarise(mean_honey_ab = mean(apisAb),
+            mean_wild_ab = mean(wildAbF),
+            mean_social_rich = mean(socialRichF)) %>% 
+  mutate(cluster = euclidean_cluster$cluster)  %>%
+  group_by(cluster) %>%
+  summarise(mean_honey_ab = mean(mean_honey_ab),
+            mean_wild_ab = mean(mean_wild_ab),
+            mean_social_rich = mean(mean_social_rich),
+            n= n())
+euclidean_non_markov_clusters
+```
+
+
+### Variable justification
+```{r}
+bee_correlations <- data.frame(matrix(0, nrow = 0, ncol = 0))
+
+for(i in 1:7){
+  for(j in 1:7){
+  bee_correlations[i,j] <- round(cor(data_2012[5+i], data_2012[5 + j]), 2)
+  }
+}
+for(i in 1:7){
+ names(bee_correlations)[i] <- colnames(data_2012[5 +i])
+}
+bee_correlations
+```
+This demonstrates that to consider the affects on wild bees, just two variables need to be considered as there is very high correlation between the outcomes. WildAbF accounts a .9+ correlation with all wild variables except for the for the solitary bee variable. Then for  this SocialRichF could be used.
+
+## Updating the bee values to match the environments
+In this particular analysis, the interest is in the affects of pesticides on bee population. As such, it is necessary to correct, as best we can, for extra factors (confounding?) to make the bee values representative.
+
+All these graphs were plotted as part of EDA by the use of lapply to the a basic plotting function. Here the relationships between some of the main extra factors (are they confounding?) will be examined.
+
+##### Temperature
+It is known that temperature affects the speed at which bees fly, as such this will have an effect on bee abundance and possibly richness although more bees might not necessarily mean more species are observed. From the previous analysis carried out it is known that a log(x) + 1 transposition of bee count allows for a "better" model fit and as such in general this will the case for our observations.
+```{r}
+##agglom
+wild_bee_abundance_agglom <- data_2012 %>%
+  inner_join(orchard_node_agglom) %>%
+  ggplot(aes(x = temp, y = log(wildAbF + 1))) +
+  geom_point(aes(colour = as_factor(node))) +
+  geom_smooth() +
+  geom_smooth(method = "lm", colour = "red") +
+  labs(x = "Temperature", y = "Wild Bee Abundance (log(x) + 1)",
+       title = "Wild Bee Abundance Coloured by Agglomerature Nodes",
+       colour = "Agglomerative clustering nodes") +
+  theme_bw() 
+wild_bee_abundance_agglom  
+
+##kmeans
+wild_bee_abundance_kmeans <- data_2012 %>%
+  inner_join(orchard_node_kmeans) %>%
+  ggplot(aes(x = temp, y = log(wildAbF + 1))) +
+  geom_point(aes(colour = as_factor(node))) +
+  geom_smooth() +
+  geom_smooth(method = "lm", colour = "red") +
+  labs(x = "Temperature", y = "Wild Bee Abundance (log(x) + 1)",
+       title = "Wild Bee Abundance Coloured by Kmeans Nodes",
+       colour = "Kmeans clustering nodes") +
+  theme_bw() 
+wild_bee_abundance_kmeans  
+
+##Linear model
+lm_temp <- lm(log(data_2012$wildAbF + 1) ~  data_2012$temp)
+temp_factor <- tidy(lm_temp) %>%
+  slice(2) %>%
+  select(estimate) %>%
+  as_vector()
+
+#Adjusting bee value as though temp is always 20
+adjusted_data <- data_2012 %>%
+  inner_join(clusterings) %>%
+  mutate(adjusted_bees = (((20 - temp) * temp_factor) + log(wildAbF + 1)))
+
+
+wild_bee_abundance_agglom_adjusted <- adjusted_data %>%
+  ggplot(aes(x = temp, y = adjusted_bees)) +
+  geom_point(aes(colour = as_factor(node))) +
+  geom_smooth() +
+  geom_smooth(method = "lm", colour = "red") +
+  labs(x = "Temperature", y = "Adjusted Wild Bee Abundance (log(x) + 1)",
+       title = "Wild Bee Abundance Coloured by Agglomerature Nodes",
+       colour = "Agglomerative clustering nodes") +
+  theme_bw() 
+wild_bee_abundance_agglom_adjusted 
+
+```
+
+##### X2000nat
+Based on previous research undertaken in the white paper it is known that the X2000nat variable has an effect on the the bee count so it also necessary to adjust for this. Wher Again the value will be adjust as though the X2000nat variable is constant. In this case the mean will be chosen as the constant value and the bee count will be adjusted for this in the same way as above. 
+
+
+```{r}
+wild_bee_abundance_agglom_x2000 <- adjusted_data %>%
+  ggplot(aes(x = X2000nat, y = adjusted_bees)) +
+  geom_point(aes(colour = as_factor(node))) +
+  geom_smooth() +
+  geom_smooth(method = "lm", colour = "red") +
+  labs(x = "X2000nat", y = "Adjusted Wild Bee Abundance (log(x) + 1)",
+       title = "Wild Bee Abundance Coloured by Agglomerature Nodes",
+       colour = "Agglomerative clustering nodes") +
+  theme_bw() 
+wild_bee_abundance_agglom_x2000
+
+#Outcome is 0.388
+mean_x2000 <- adjusted_data %>%
+  summarise(mean_x2000 = mean(X2000nat)) %>%
+  as_vector()
+
+
+lm_X2000nat <- lm(adjusted_data$adjusted_bees ~  adjusted_data$X2000nat)
+X2000_factor <- tidy(lm_X2000nat) %>%
+  slice(2) %>%
+  select(estimate) %>%
+  as_vector()
+
+#Adjusting the data for this variable
+
+adjusted_data <- adjusted_data %>%
+  mutate(adjusted_bees = ((mean_x2000 - X2000nat) * X2000_factor) + adjusted_bees)
+```
+So if you look at them individually, it can only be adjusted for one. So need to combine a linear model of all *affecting* factors to best adjust at the end. 
+
+## Analysising other potential confounders
+This section will look at finding other parameters to include in the bee variable, dataset used at this point is the original just with the bee variable considered going through a log(x + 1) transformation. The only bee variable to be considered at this point is the wild bee abundance, in future more could be considered in this way or it would be expected to be similar for all bee variables and I could just use the variables decided upon in this way for all the bee variables considered.
+
+### Local Diversity
+The aim here is to whether adding local diversity as a adjustment factor is going to be beneficial or not. This will be achieved by running a F test to see whether the variances are equal, a shapiro test to confirm the bee data can be assumed to be normal. Note, independence assumption is not validated, this is due more than 1 result being used from each orchard, I decided to include these as I thought the extra power gained from twice the observations was worth the penalty of this assumption.
+```{r}
+#When adding temperature in other variables have an effect
+logged_data <- data_2012 %>%
+  inner_join(clusterings) %>%
+  mutate(adjusted_bees = (((20 - temp) * temp_factor) + log(wildAbF + 1)))
+
+#Just logged
+logged_data <- data_2012 %>%
+  inner_join(clusterings) %>%
+  mutate(adjusted_bees = log(wildAbF + 1))
+
+#X2000nat adjustment
+logged_data <- data_2012 %>%
+  inner_join(clusterings) %>%
+  mutate(adjusted_bees = log(wildAbF + 1))%>%
+  mutate(adjusted_bees = ((mean_x2000 - X2000nat) * X2000_factor) + adjusted_bees)
+
+
+#Testing underlying normal data assumption, again demonstrating why the transformation is neccessary:
+#Not normal
+shapiro.test(logged_data$wildAbF)
+#After transformation -> normal
+shapiro.test(logged_data$adjusted_bees)
+#Checking if the two subsets have the same variance have the same variance
+#Outcome shows that they can be assumed to have the same variance as p.value > 0,05
+simple <- logged_data %>% filter(local.diversity == 0) %>% select(adjusted_bees) %>% as_vector()
+diverse <- logged_data %>% filter(local.diversity == 1) %>% select(adjusted_bees) %>% as_vector()
+tidy(var.test(simple, diverse)) %>%
+  select(statistic, p.value)
+#Performing a two sample t-test on the data to see whether they are the same.
+#Since H0: Means the same, H1: means are different ~ p.value not significant
+
+#This implies local.diversity does NOT have an effect on the original bee counts.
+#I thought this was an interesting point and worth noting, same happens with Region.
+tidy(t.test(wildAbF ~ local.diversity, logged_data, var.equal = TRUE))
+
+#However the the adjusted version of bee count does list local diversity
+#as a factor which has an effect on the log transformed bee counts
+tidy(t.test(adjusted_bees ~ local.diversity, logged_data, var.equal = TRUE))
+
+```
+From This analysis, it can be concluded that local.diversity does NOT play a factor in bee count
+### Region
+Region has 3 possible options - as such an ANOVA test will be used to see whether there is a difference between the means in wild abundance based on region.
+
+```{r}
+#Checking Anova assumption that the variances are the same
+# H0: Variances the same: H1: Atleast one variance is different
+leveneTest(adjusted_bees ~ region, data = logged_data)
+#Since pr > 0.05 we can assume variances are the same
+
+#Running the anova  test
+anova1 <- aov(adjusted_bees ~ region, data = logged_data)
+
+summary(anova1)
+#probablity shows that region is not an affecting factor to  wildAbF
+
+#Checking that the following anova assumption is TRUE:
+#Residuals of the response variable are normally distributed is NOT true
+shapiro.test(residuals(anova1))
+```
+
+### Day
+Looking at the day to see whether that also has an effect, since the data can be paired by day 1 and day 2 a paired t-test will be carried out on this to test whether there is a difference in bee count.
+When using just the X2000nat variable, then it becomes very close to significant.
+
+```{r}
+day_1 <- logged_data %>% filter(day == 1) %>% select(adjusted_bees) %>% as_vector()
+day_2 <- logged_data %>% filter(day == 2) %>% select(adjusted_bees) %>% as_vector()
+#This demonstrates that the variances come from the same distribution:
+tidy(var.test(day_1, day_2)) %>%
+  select(statistic, p.value)
+
+#Hence we can run a paired t-test with equal variances
+tidy(t.test(adjusted_bees ~ day, logged_data, var.equal = TRUE, paired = TRUE))
+#Bit surprising but it demonstrates that there is no statistical significance between days
+#So combining values to start with is probably appropriate
+```
+
+
+### Bloom
+First it shall be graphed to see if there is any obvious correlation.
+```{r}
+logged_data %>%
+  ggplot(aes(x = bloom.index, y = adjusted_bees)) +
+  geom_point() +
+  geom_smooth(se = FALSE) +
+  geom_smooth(method = "lm", colour = "red", se =FALSE) + 
+  theme_bw() +  
+  geom_point() %>%
+  labs(x = "Bloom Index", y = "Bee Abundance")
+```
+There doesn't seem to be any obvious correlation, but just to be sure I'll split the bloom into thee categories and test these with an Anova test.
+```{r}
+logged_data <- logged_data %>%
+          mutate(bloom_category = if_else(bloom.index <= 33, 1,
+                                  if_else(bloom.index <= 66, 2, 3)))
+
+#Running the anova  test
+anova1 <- aov(adjusted_bees ~ bloom_category, data = logged_data)
+summary(anova1)
+#As expected there is no evidence to suggest that bloom index (category)
+#Has an effect on the bee counts (although only 1 DF in bloom_category thought it should be 2??)
+
+```
+
+Bloom is a continuous variable but for the sakes of deciding whether to include it or not
+
+### Final Confounders
+Based on the analysis above, the confounders that could be taken into account are:
+Region and local diversity based on the statistical tests, temperature and X2000nat based on the literature.
+```{r}
+#Checking the variables to see if any are heavily correlated (binary/categorical ones won't be)
+#So checking other two  and we get a low correlation so acceptable to use them together
+cor(logged_data$temp, logged_data$X2000nat)
+
+f_lm <- lm(adjusted_bees ~ temp + X2000nat + local.diversity + region, data = logged_data)
+#Interesting values here seem to suggest that only significant one is X2000nat
+summary(f_lm)
+```
+
+
+Notes, from running the adjustments: When you use temperature as an original adjustment, only significant one in the model is X2000nat and when you use X2000nat in the original data only significant one is temp. When you use neither and just apply the linear model on the logged data then both temp and nat are significant -> suggesting that just these two variables would be best to adjust by. This suggest to me that fitting a joint lm using both temp and X2000nat to adjust the data is probably best to avoid overfitting and keep the model as parsimonious as possible. Despite region and local.diversity being significant for temp adjustment originally, unlikely to be worth implementing but could be considered to cover model changes section. To take this further, could apply lasso regression on the full dataset to see what that comes up with as tends to have a lower MSE than a standard LM.
+
+```{r}
+#Using the logged_data with no adjustments
+logged_data <- data_2012 %>%
+  inner_join(clusterings) %>%
+  mutate(adjusted_bees = log(wildAbF + 1)) %>%
+  mutate(adjusted_social = log(socialRichF + 1))
+
+#Defining linear model with temp and X2000nat as factors
+temp_nat_lm <- tidy(lm(adjusted_bees ~ temp + X2000nat, data = logged_data))
+#Extracting temp and nat estimate values
+temp_factor <- temp_nat_lm %>%
+  select(estimate) %>% 
+  slice(2) %>% 
+  as_vector()
+nat_factor <- temp_nat_lm %>% 
+  select(estimate) %>% 
+  slice(3) %>%
+  as_vector()
+
+#Now adjustments shall be made for these two variables:
+#Temperature will be set to 20 degrees
+#X2000 nat will be set to the meean x2000 nat value
+temp_nat_adjusted <- logged_data %>% 
+  mutate(adjusted_bees = (adjusted_bees + ((20 - temp) * temp_factor) + ((mean_x2000 - X2000nat) * X2000_factor) ))
+
+#Checking that after the adjustment they are not significant at all in the model
+tidy(lm(adjusted_bees ~ temp + X2000nat, data = temp_nat_adjusted))
+#As expected now the bee abundance has been adjusted for these two parameters
+```
+The same process can be applied to the variable SocialRichF, the other bee variable which needs to be considered.
+Since we know that only temp and nat were statistic on the wildAbF we can go straight to the LM and test that (May need to check this with Julia, if not just cp previous analsysis...)
+
+
+```{r}
+#Looking at the model ~ only X2000nat significant
+lm(adjusted_social ~ temp + X2000nat + local.diversity + region, data = logged_data) %>%
+  summary
+social_lm<- tidy(lm(adjusted_social ~ X2000nat, data = logged_data))
+
+social_nat_factor <- social_lm %>% 
+  select(estimate) %>% 
+  slice(2) %>%
+  as_vector()
+
+#Adjustment for social added
+temp_nat_adjusted <- temp_nat_adjusted %>%
+  mutate(adjusted_social = (adjusted_social + ((mean_x2000 - X2000nat) * X2000_factor)))
+
+```
+
+## Clustering Summarising
+Functions involved with summarising the clusters:
+```{r}
+#Gets the name of a variable as a string ~ now implemented in clusterise but keeping
+get_name <- function(x) {
+  deparse(substitute(x))
+}
+
+#Gets the bee variables that I am summarising for each cluster - makes it easy to change in future
+clusterise <- function(bee_data, cluster_data, v_name = deparse(substitute(cluster_data))){
+  inner_join(bee_data, cluster_data) %>%
+    summarise(mean_honey_ab = mean(mean_honey_ab),
+              mean_wild_ab = mean(mean_wild_ab),
+              mean_social_rich = mean(mean_social_rich),
+              n = n()) %>%
+    mutate(cluster = v_name)
+}
+
+#The function to output the summaries of both agglom and kmeans clustering
+cluster_summarise <- function(bee_data){
+output <- list()
+  
+output$agglom_bees <- clusterise(bee_data, aggl_node1) %>%
+  bind_rows(clusterise(bee_data, aggl_node2)) %>%
+  bind_rows(clusterise(bee_data, aggl_node3)) %>%
+  bind_rows(clusterise(bee_data, aggl_node4)) %>%
+  bind_rows(clusterise(bee_data, aggl_node5)) %>%
+  bind_rows(clusterise(bee_data, aggl_node6)) %>%
+  bind_rows(clusterise(bee_data, aggl_node7)) %>%
+  bind_rows(clusterise(bee_data, aggl_node4 %>% filter(cluster == 1), "agglom_node8")) %>%
+  bind_rows(clusterise(bee_data, aggl_node4 %>% filter(cluster == 2), "agglom_node9")) %>%
+  bind_rows(clusterise(bee_data, aggl_node5 %>% filter(cluster == 1), "agglom_node10")) %>%
+  bind_rows(clusterise(bee_data, aggl_node5 %>% filter(cluster == 2), "agglom_node11")) %>%
+  bind_rows(clusterise(bee_data, aggl_node6 %>% filter(cluster == 1), "agglom_node12")) %>%
+  bind_rows(clusterise(bee_data, aggl_node6 %>% filter(cluster == 2), "agglom_node13")) %>%
+  #Only 1 result for cluster as none in the latter cluster
+  #Unable to to bind as no common variables for an empty node15
+  bind_rows(clusterise(bee_data, aggl_node7 %>% filter(cluster == 1), "agglom_node14")) 
+
+
+output$kmeans_bees <- clusterise(bee_data, kmeans_node1) %>%
+  bind_rows(clusterise(bee_data, kmeans_node2)) %>%
+  bind_rows(clusterise(bee_data, kmeans_node3)) %>%
+  bind_rows(clusterise(bee_data, kmeans_node4)) %>%
+  bind_rows(clusterise(bee_data, kmeans_node5)) %>%
+  bind_rows(clusterise(bee_data, kmeans_node6)) %>%
+  bind_rows(clusterise(bee_data, kmeans_node7)) %>%
+  bind_rows(clusterise(bee_data, kmeans_node4 %>% filter(cluster == 1), "kmeans_node8")) %>%
+  bind_rows(clusterise(bee_data, kmeans_node4 %>% filter(cluster == 2), "kmeans_node9")) %>%
+  bind_rows(clusterise(bee_data, kmeans_node5 %>% filter(cluster == 1), "kmeans_node10")) %>%
+  bind_rows(clusterise(bee_data, kmeans_node5 %>% filter(cluster == 2), "kmeans_node11")) %>%
+  bind_rows(clusterise(bee_data, kmeans_node6 %>% filter(cluster == 1), "kmeans_node12")) %>%
+  bind_rows(clusterise(bee_data, kmeans_node6 %>% filter(cluster == 2), "kmeans_node13")) %>%
+  bind_rows(clusterise(bee_data, kmeans_node7 %>% filter(cluster == 1), "kmeans_node14")) %>%
+  bind_rows(clusterise(bee_data, kmeans_node7 %>% filter(cluster == 2), "kmeans_node15"))
+
+#Return a list containing two tibbles one for each type of clustering algorithm
+output
+}
+```
+
+Original summarising without any variable correction
+```{r, message = FALSE}
+#original Bee data (logged has no changes to it)
+bee_values <- logged_data %>%
+  group_by(orchard) %>%
+  summarise(mean_honey_ab = mean(apisAb),
+            mean_wild_ab = mean(adjusted_bees),
+            mean_social_rich = mean(adjusted_social)
+            )
+
+original_bee_summary <- cluster_summarise(bee_data = bee_values)
+
+#Agglom
+original_bee_summary$agglom_bees
+
+#Kmeans
+original_bee_summary$kmeans_bees
+
+##Original summarising of non-markov approach
+maximum_cluster
+
+#Clustering summaries based on non-markov approach
+non_markov_clusters <-  logged_data %>%
+  group_by(orchard) %>%
+  summarise(mean_honey_ab = mean(apisAb),
+            mean_wild_ab = mean(adjusted_bees),
+            mean_social_rich = mean(adjusted_social)) %>% 
+  mutate(cluster = maximum_cluster$cluster)  %>%
+  group_by(cluster) %>%
+  summarise(mean_honey_ab = mean(mean_honey_ab),
+            mean_wild_ab = mean(mean_wild_ab),
+            mean_social_rich = mean(mean_social_rich),
+            n= n())
+```
+After Adjustment:
+```{r, message = FALSE}
+adjusted_bee_values <- temp_nat_adjusted %>%
+  group_by(orchard) %>%
+  summarise(mean_honey_ab = mean(apisAb),
+            mean_wild_ab = mean(adjusted_bees),
+            mean_social_rich = mean(adjusted_social)
+            )
+
+adjusted_bee_summary <- cluster_summarise(bee_data = adjusted_bee_values)
+
+#Agglom
+adjusted_bee_summary$agglom_bees
+
+#Kmeans
+adjusted_bee_summary$kmeans_bees
+
+
+##Non-Markov
+##Maximum
+#Clustering summaries based on non-markov approach
+maximum_non_markov_clusters <-  temp_nat_adjusted %>%
+  group_by(orchard) %>%
+  summarise(mean_honey_ab = mean(apisAb),
+            mean_wild_ab = mean(adjusted_bees),
+            mean_social_rich = mean(adjusted_social)) %>% 
+  mutate(cluster = maximum_cluster$cluster)  %>%
+  group_by(cluster) %>%
+  summarise(mean_honey_ab = mean(mean_honey_ab),
+            mean_wild_ab = mean(mean_wild_ab),
+            mean_social_rich = mean(mean_social_rich),
+            n= n())
+
+##euclidean:
+euclidean_non_markov_clusters <-  temp_nat_adjusted %>%
+  group_by(orchard) %>%
+  summarise(mean_honey_ab = mean(apisAb),
+            mean_wild_ab = mean(adjusted_bees),
+            mean_social_rich = mean(adjusted_social)) %>% 
+  mutate(cluster = euclidean_cluster$cluster)  %>%
+  group_by(cluster) %>%
+  summarise(mean_honey_ab = mean(mean_honey_ab),
+            mean_wild_ab = mean(mean_wild_ab),
+            mean_social_rich = mean(mean_social_rich),
+            n= n())
+```
+Although honey bee abundance is one of the summarised variables, this is likely to be related directly to the hive.acr variable.
+
+Comparing cluster values before and after adjustments, for now just looking at the agglomerative node clustering selection as it is, in my opinion, better than Kmeans.
+```{r}
+##agglom
+adjusted_bee_summary$agglom_bees %>%
+  select(mean_wild_ab, mean_social_rich ,cluster) %>% 
+  rename(adjusted = mean_wild_ab) %>%
+  rename(adjusted_social = mean_social_rich) %>%
+  inner_join(original_bee_summary$agglom_bees %>%
+               select(mean_wild_ab, mean_social_rich, cluster)) %>%
+  select(cluster,mean_wild_ab, adjusted, mean_social_rich, adjusted_social)
+
+##Kmeans
+adjusted_bee_summary$kmeans_bees %>%
+  select(mean_wild_ab, mean_social_rich ,cluster) %>% 
+  rename(adjusted = mean_wild_ab) %>%
+  rename(adjusted_social = mean_social_rich) %>%
+  inner_join(original_bee_summary$kmeans_bees %>%
+               select(mean_wild_ab, mean_social_rich, cluster)) %>%
+  select(cluster,mean_wild_ab, adjusted, mean_social_rich, adjusted_social)
+```
+Potentially can see two *paths* one with a mean slightly lower than the other if you think of the structure.
+
+### Looking at clusters
+The aim of this section is to look at the clusterings from a low, medium, high point of view, so that an end user doesn't need to understand the numerical implications.
+
+```{r}
+#Non_markov clustering summary maximum
+maximum_final <- maximum_cluster %>% 
+  group_by(cluster) %>%
+  summarise_all(funs(mean)) %>%
+  inner_join(maximum_non_markov_clusters)
+
+#Non_markov clustering summary euclidean
+euclidean_final <- euclidean_cluster %>% 
+  group_by(cluster) %>%
+  summarise_all(funs(mean)) %>%
+  inner_join(euclidean_non_markov_clusters)
+
+#Cluster 1 -> Low insecticide, High Fungicide, low thinner
+#Cluster 2 -> High insecticide, Low Fungicide, low (no) thinner
+#Cluster 3 -> middle insecticide, High Fungicide,  low thinner
+#Cluster 4 -> Low insecticide, High Fungicide, High thinner
+
+#Agglom clustering summary (end stage)
+bee_summary_agglom <- adjusted_bee_summary$agglom_bees %>%
+  slice(8:14) %>%
+  select(-cluster) %>%
+  mutate(cluster = c(1,2,3,4,5,6,7))
+
+
+pesticide_summary_agglom <- aggl_c(aggl_node2, ".pos", 1)  %>%
+  bind_rows(aggl_c(aggl_node2, ".pos", 2) %>%
+  mutate(cluster = if_else(cluster == 1, 3, 4))) %>%
+  bind_rows(aggl_c(aggl_node3, ".pos", 1)%>%
+  mutate(cluster = if_else(cluster == 1, 5, 6))) %>%
+  bind_rows(aggl_c(aggl_node3, ".pos", 2)%>%
+  mutate(cluster = if_else(cluster ==1, 7, 8))) %>%
+  group_by(cluster) %>%
+  summarise_all(funs(mean))
+
+
+##final agglom
+agglom_summary <- bee_summary_agglom %>%
+  inner_join(pesticide_summary_agglom) %>%
+  select(-orchard) #%>%
+  #1 for high, 0 for low, just using bloom
+  # mutate(pest_rating = c(0,0,1,1,0,0,1)) %>%
+  # mutate(insect_rating = c(1,0,1,0,0,1,1)) %>%
+  # mutate(thinner_rating = c(1,0,0,1,0,1,0))
+
+
+#Kmeans
+bee_summary_kmeans <- adjusted_bee_summary$kmeans_bees %>%
+  slice(8:14) %>%
+  select(-cluster) %>%
+  mutate(cluster = c(1,2,3,4,5,6,7))
+
+
+pesticide_summary_kmeans <- aggl_c(kmeans_node2, ".pos", 1)  %>%
+  bind_rows(aggl_c(kmeans_node2, ".pos", 2) %>%
+  mutate(cluster = if_else(cluster == 1, 3, 4))) %>%
+  bind_rows(aggl_c(kmeans_node3, ".pos", 1)%>%
+  mutate(cluster = if_else(cluster == 1, 5, 6))) %>%
+  bind_rows(aggl_c(kmeans_node3, ".pos", 2)%>%
+  mutate(cluster = if_else(cluster ==1, 7, 8))) %>%
+  group_by(cluster) %>%
+  summarise_all(funs(mean))
+
+
+##
+kmeans_summary <- bee_summary_kmeans %>%
+  inner_join(pesticide_summary_kmeans) %>%
+  select(-orchard)
+
+#write.csv(agglom_summary, "agglom_summary.csv")
+
+#Overall
+#HLH
+#HHL
+#HHL
+#HLH
+#LLL
+#LHH
+#LLL
+
+#Just Bloom
+#LHH
+#LLL
+#HHL
+#HLH
+#LLL
+#LHH
+#HHL
+
+##Just bloom and just fungicide and insecticide
+```
+
+
+
+##Final summaries between models
+This section summarises all of the cluster modelled scenarios
+```{r}
+round_df <- function(df, digits = 2) {
+  #Using a temp variable to not round cluster and n as these are integers
+ temp <- df %>%
+    mutate(cluster = as.character(cluster))  %>%
+    mutate(n = as.character(n))
+  nums <- vapply(temp, is.numeric , FUN.VALUE = logical(1))
+
+  df[,nums] <- round(df[,nums], digits = digits)
+
+  df
+}
+
+#Need a different rounding function when cluster/n not present
+round_df_2 <- function(df, digits = 2) {
+  nums <- vapply(df, is.numeric , FUN.VALUE = logical(1))
+  df[,nums] <- round(df[,nums], digits = digits)
+
+  df
+}
+
+
+
+apple_order <- function(data){
+  data %>%
+    select(cluster, n, mean_wild_ab, mean_social_rich, contains("pre"), contains("blm"), contains("pos"))
+}
+
+#Rounding data for shiny app display
+maximum_final_standardised <- round_df(maximum_final_standardised) %>%
+  apple_order()
+euclidean_final_standardised <- round_df(euclidean_final_standardised) %>%
+  apple_order()
+#no n
+agglom_summary_standardised <- round_df(agglom_summary_standardised) %>%
+  apple_order()
+#no n
+kmeans_summary_standardised <- round_df(kmeans_summary_standardised) %>%
+  apple_order()
+# 8 clusters in this method - 6 different options so this is the cluster that will used - missing option is
+maximum_final <- round_df(maximum_final) %>%
+  apple_order()
+
+maximum_final_app <- maximum_final %>%
+  mutate(fung_level =    c("high","low","low","high","high","low","low","high"))  %>%
+  mutate(insect_level =  c("low","high","high","high","low","high","low","low")) %>%
+  mutate(thinner_level = c("low","low","high","low","high","high","low","high"))
+
+
+
+protocol_summary <- maximum_final_app %>%
+  group_by(fung_level, insect_level, thinner_level) %>%
+  summarise(mean_wild_ab = mean(mean_wild_ab),
+            mean_social_rich = mean(mean_social_rich)) %>%
+  ungroup() %>%
+  mutate(unlogged_ab = exp(mean_wild_ab) + 1) %>%
+  mutate(unlogged_rich = exp(mean_social_rich) + 1) %>%
+  round_df_2()
+
+euclidean_final <- round_df(euclidean_final) %>%
+  apple_order()
+#7 Clusters in this method - 5 diff options
+agglom_summary <- round_df(agglom_summary) %>%
+  mutate(fung_level =    c(1,1,1,1,0,0,0))  %>%
+  mutate(insect_level =  c(1,1,1,0,0,1,0)) %>%
+  mutate(thinner_level = c(1,0,1,1,0,1,0)) %>%
+  apple_order()
+#Removes previous NA inserted due to joining.
+kmeans_summary <- round_df(kmeans_summary) %>%
+  na.omit() %>%
+  apple_order()
+  
+
+#Displaying table outputs
+maximum_final_standardised 
+euclidean_final_standardised
+agglom_summary_standardised 
+kmeans_summary_standardised
+maximum_final 
+euclidean_final
+agglom_summary
+kmeans_summary 
+
+#Could do something with this and plots coloured by cluster or something like that perhaps?
+temp_nat_adjusted %>%
+  group_by(orchard) %>%
+  summarise(mean_honey_ab = mean(apisAb),
+            mean_wild_ab = mean(adjusted_bees),
+            mean_social_rich = mean(adjusted_social))
+
+
+##Looking at total amount for raw data max and euclid
+maximum_final %>%
+   mutate(sum = rowSums(.[5:12])) %>%
+  select(cluster, n , mean_wild_ab, mean_social_rich,sum) 
+
+euclidean_final %>%
+   mutate(sum = rowSums(.[5:12])) %>%
+  select(cluster, n , mean_wild_ab, mean_social_rich,sum) 
+
+#Saving the final clusters for use in the shiny app
+save(data_2012, maximum_final, maximum_final_app, euclidean_final, agglom_summary, kmeans_summary,
+               maximum_final_standardised, euclidean_final_standardised,
+               agglom_summary_standardised, kmeans_summary_standardised, clust_comps, standardised_clust_comps, protocol_summary, file = "shinydata.RData")
+```

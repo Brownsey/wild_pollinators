@@ -1,0 +1,549 @@
+---
+title: "For Botanist"
+author: "Stephen Brownsey"
+date: "03/11/2019"
+output: pdf_document
+---
+
+## Introduction
+The code in this .rmd was used for the discussion with the botanist on the 03/11/2019. It also contains extra EDA on top of the EDA already undertaken as part of the exploratory_data.rmd file. At the latter end the first EDA for clustering was undertaken, the clustering EDA which has utilised in the rest of the project has remained uncommented. Some method were considered but didn't work as desired and have been commented out but the code kept in to demonstrate the thought process - the clustering.rmd  the full code for the clustering analysis.
+```{r libraries, results= "hide", message=F, warning=F, echo = FALSE}
+library(tidyverse)
+library(ggmap)
+library(leaps)
+library(GGally)
+library(gridExtra)
+library(factoextra)
+library(FactoMineR)
+library(BBmisc)
+library(pvclust)
+library(NbClust)
+library(class)
+library(cluster)
+library(clValid)
+library(modeest)
+```
+
+### Map Analysis
+This is an image of where each of the orchards is located, more for interest but would you think that they would go around taking readings of different orchards based on similar days when they are close to each other? If so, would it make sense to apply some models to just one area?
+```{r, echo = FALSE, warning=FALSE}
+#Loading the data in from paper ~ downloaded from their resources as a .xlsx, created csv with useful page for quicker reading.
+data <- read.csv("data.csv") %>%
+  #renaming as column name had a few unrecognised characters in front
+  rename(orchard = contains("orchard"))
+
+#Creating an indicator variable to show whether the Orchard appeared in both years or just 1 (0 -> No, 1 -> Yes)  
+years <- data %>% 
+  select(orchard, year) %>%
+  distinct() %>%
+  count(orchard) %>%
+  rename(both_years = n) %>%
+  mutate(both_years = (both_years - 1)) %>%
+  mutate(id = row_number()) 
+
+
+data <- merge(data, years)%>%
+  na.omit()
+
+#Isolating the lat and long
+lat_long <- data %>% 
+  select(lat,long,both_years) %>%
+  distinct()
+
+register_google(key = "AIzaSyB9Hpt0vTWrALpm0iUyJxW6C2IuHZylpC8")
+map <- get_map(location = c(lon = mean(lat_long$lon), lat = mean(lat_long$lat)), zoom = 9,
+                      maptype = "satellite", scale = 2)
+
+#~~~~~Plotting the locations of all the orchards:
+plotted_map <- ggmap(map) +
+  geom_point(data = lat_long, aes(x = long, y = lat, fill = both_years , alpha = 0.8), size = 5, shape = 21) +
+  guides(fill = FALSE, alpha = FALSE, size = FALSE) +
+  ggtitle("Orchard Locations") +
+  xlab("Longitude") + 
+  ylab("Latitude")
+plotted_map
+## 
+```
+
+The variables in general are very correlated, as you would expect, but this means that for the decision models I would want to be looking at a subset of these but from a botanist's point of view which variables would she consider best?
+Not that clear in a .pdf but lots are upwards of 0.8/0.9 correlated.
+
+### GGTally
+Takes about 5-10 mins to run - produces all the various correlation and associated plots between variables
+```{r, echo = FALSE}
+#bees_data <- ggpairs(data = data, columns = 7:13, title = "Bees Data")
+#bees_data
+#predictor_data <- ggpairs(data = data, columns = 13:34, title = "Predictor Data")
+#predictor_data
+```
+
+### Looking at individual variables
+```{r, echo = FALSE, warning=FALSE}
+day_data <- data %>%
+  filter(day %in% c("1","2")) %>%
+  mutate(year_day = ifelse(str_detect(day, "1") & str_detect(year, "3"), '11', 
+                           ifelse(str_detect(day, "2") & str_detect(year, "3"), '12',
+                           ifelse(str_detect(day, "1") & str_detect(year, "4"), '21',
+                            ifelse(str_detect(day, "2") & str_detect(year, "4"), '22', "55"))))) %>%
+  mutate(year_day = factor(year_day, labels = c("Year 3 and Day 1","Year 3 and Day 2", "Year 4 and Day 1", "Year 4 and Day 2"))) %>%
+  na.omit()
+
+
+```
+
+### Code post 25/10
+Violin plots of the data - I am a fan of what these show, but in particular note the one for bloom.index (at the bottom), I had thought that day 1 would be < 50% bloom and day 2 post 50% bloom but this clearly shows this is not the case - thoughts? Have also included a distributions plot of the variables in the dataset for interest as it could be helpful when thinking about these things.
+```{r, echo = FALSE, warning=FALSE}
+data_2012 <- day_data %>%
+  filter(year == 4) 
+
+#Looking at violin plots of the data
+violin_data <- day_data %>%
+  select(c("region":"X2000nat")) %>%
+  gather(key = "explanatory", value = "value",-region, -day) %>%
+  na.omit()
+
+violin_plot <- function(x, xlab, ylab, title){
+ x %>% ggplot() +
+    geom_violin(aes(x = factor(explanatory), y = value, fill = explanatory, colour = explanatory)) +
+    ylab(ylab) + 
+    xlab(xlab) +
+    ggtitle(title) +
+    theme(legend.position = "none") +
+    theme_classic()
+}
+ 
+violin_plot_bees <- violin_data %>%
+  subset(explanatory %in% colnames(day_data[4:12])) %>%
+  violin_plot("Bee Factor", "Bee Rating", "Distributions of each Bee Variable")
+violin_plot_bees
+
+
+violin_plot_fungicides <- violin_data %>%
+  subset(explanatory %in% colnames(day_data[c(19,22,23,24)])) %>%
+  violin_plot("Fungicide Factor","Fungicide Rating","Distributions of each Fungicide Variable")
+violin_plot_fungicides
+
+violin_plot_insecticide <- violin_data %>%
+  subset(explanatory %in% colnames(day_data[c(20,21,25:28)])) %>%
+  violin_plot("Insecticide Factor", "Insecticide Rating", "Distributions of each Insecticide Variable")
+
+#Distributions of all variables
+distributions <- violin_data %>%
+  ggplot() +
+  geom_density(aes(value)) +
+  facet_wrap(~explanatory, scales = "free") +
+  theme_classic()
+distributions
+
+#Bloom values - particularly not ideal as it looks like the day 1 / day 2 actually is just random
+#lol not even in relation to bloom levels 
+bloom_plot <- day_data %>%
+  group_by(region, day) %>%
+  mutate(group = paste(region, day)) %>%
+  ggplot(aes(x= group, y = bloom.index)) +
+  geom_violin(aes(fill = group, colour = group)) +
+  geom_jitter(height = 0, width = 0.05) + 
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(x = "Region and Day", y = "Bloom Index", title = "Violin Plot of Bloom Index by Region and Day")
+bloom_plot
+
+
+bloom_plot_2012 <- data_2012 %>%
+  group_by(region, day) %>%
+  mutate(group = paste(region, day)) %>%
+  ggplot(aes(x= group, y = bloom.index)) +
+  geom_violin(aes(fill = group, colour = group)) +
+  geom_jitter(height = 0, width = 0.05) + 
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(x = "Region and Day", y = "Bloom Index", title = "Violin Plot of Bloom Index by Region and Day")
+bloom_plot_2012
+```
+
+
+## Graphics from botanists chat
+Extra graphics and analysis undertaken based on the chat with the botanist to see relationships.
+```{r, echo = FALSE, warning=FALSE}
+group_day_data <-  day_data %>%
+  group_by(region, day) %>%
+  mutate(group = paste(region, day))
+
+
+bloom_plot <- group_day_data  %>%
+  ggplot(aes(x= orchard, y = bloom.index, colour = group, shape = group)) +
+  geom_point()+
+  theme_classic() +
+  labs(x = "Region and Day", y = "Bloom Index", title = "Scatter_plot of Bloom Index by Region and Day")
+bloom_plot
+
+
+bloom_plot_2012 <- group_day_data  %>%
+  ggplot(aes(x= orchard, y = bloom.index, colour = group, shape = group)) +
+  geom_point()+
+  theme_classic() +
+  labs(x = "Region and Day", y = "Bloom Index", title = "Scatter_plot of Bloom Index by Region and Day for 2012 Data")
+bloom_plot_2012
+
+by_day <- tibble(day_1 = data_2012 %>% 
+                      filter(day == 1) %>%
+                      select(bloom.index), 
+                    day_2 = data_2012 %>% 
+                      filter(day == 2) %>%
+                      select(bloom.index), 
+                    colour = data_2012 %>%
+                      filter(row_number() %% 2 == 1) %>%
+                      select(region)) 
+
+
+day_1_2 <- by_day %>%
+  ggplot() + 
+  geom_point(aes(x = day_1$bloom.index, y = day_2$bloom.index, colour = colour$region)) +
+  theme_bw()
+day_1_2
+```
+
+
+The first step for us is to understand the chemicals applications better, including the combinations. The variables in the data are  scores developed by the authors that capture the impact the have, so that is quite ready to use and comparable, need to further investigate this.
+```{r, echo = FALSE, warning=FALSE}
+fungicide_vs_insecticide <- function(data,y,y1,  title){
+  data %>%
+    ggplot(aes(x = orchard)) +
+  geom_point(aes_string( y = y), colour = "red") +
+  geom_point(aes_string( y = y1), colour = "blue") + 
+  theme_bw() +
+  ggtitle(title) +
+  ylab("Value")
+}
+
+data_2012 %>%
+  fungicide_vs_insecticide("eiqB11F.pre","eiqB11I.pre","eiqB11F.pre in red, eiqB11I.pre in blue")
+
+data_2012 %>%
+  fungicide_vs_insecticide("eiqB11F.blm","eiqB11I.blm","eiqB11F.blm in red, eiqB11I.blm in blue")
+
+data_2012 %>%
+  fungicide_vs_insecticide("eiqB11F.pos","eiqB11I.pos","eiqB11F.pos in red, eiqB11I.pos in blue")+
+  geom_point(aes(x = orchard, y = eiqB11I.pos.np), colour = "purple") 
+
+density_plot <- function(y){
+  data_2012 %>%
+     ggplot() +
+  geom_density(aes_string(y)) +
+    theme_bw() +
+    ggtitle(paste0("Density of ", y))
+}
+
+
+hist_plot <- function(y){
+  data_2012 %>%
+    ggplot(aes( fill = region)) +
+    geom_histogram(aes_string(y)) + 
+    theme_bw() +
+    ggtitle(paste0("Histogram of " , y))
+}
+
+l <- c("eiqB11F.pos","eiqB11I.pos","eiqB11F.pre", "eiqB11I.pre","eiqB11F.blm", "eiqB11I.blm")
+lapply(l, density_plot)
+lapply(l, hist_plot)
+#couple of examples for progress report
+ex1 <- density_plot("eiqB11I.pos")
+ex2 <- hist_plot("eiqB11I.blm")
+
+#a <- grid.arrange(temperature_plot, honey_temp, ex1,ex2, nrow = 2)
+``` 
+Looking at kmeans for clustering of orchards to decide on decision model, using Kmeans for now to generate the outputs quickly as an EDA approach to clustering.
+
+```{r, echo = FALSE, warning=FALSE}
+#Can probably put all kmeans into this datatype and sort it that way
+set.seed(666)
+kmeans_clusters <- tibble(cluster_2_pre = kmeans(data_2012 
+                                    %>% select(eiqB11F.pre, eiqB11I.pre), 2)$cluster,
+                          cluster_3_pre = kmeans(data_2012 
+                                    %>% select(eiqB11F.pre, eiqB11I.pre), 3)$cluster,
+                          cluster_4_pre = kmeans(data_2012 
+                                    %>% select(eiqB11F.pre, eiqB11I.pre), 4)$cluster,
+                          cluster_2_blm = kmeans(data_2012 
+                                    %>% select(eiqB11F.blm, eiqB11I.blm), 2)$cluster,
+                          cluster_3_blm = kmeans(data_2012 
+                                    %>% select(eiqB11F.blm, eiqB11I.blm), 3)$cluster,
+                          cluster_4_blm = kmeans(data_2012 
+                                    %>% select(eiqB11F.blm, eiqB11I.blm), 4)$cluster,
+                          cluster_2_pos = kmeans(data_2012 
+                                    %>% select(eiqB11F.pos, eiqB11I.pos), 2)$cluster,
+                          cluster_3_pos = kmeans(data_2012 
+                                    %>% select(eiqB11F.pos, eiqB11I.pos), 3)$cluster,
+                          cluster_4_pos = kmeans(data_2012 
+                                    %>% select(eiqB11F.pos, eiqB11I.pos), 4)$cluster,
+                 )
+# With this method only 7 out of the possible 16 arms in the decision model with have any results
+current <- kmeans_clusters %>%
+  select(cluster_4_pre, cluster_2_blm, cluster_2_pos) %>%
+  group_by_all() %>% 
+  summarise(COUNT = n())
+current
+
+current_2 <- kmeans_clusters %>%
+  select(cluster_2_pre, cluster_2_blm, cluster_2_pos) %>%
+  group_by_all() %>% 
+  summarise(COUNT = n())
+current_2
+
+current_3 <- kmeans_clusters %>%
+  select(cluster_3_pre, cluster_3_blm, cluster_3_pos) %>%
+  group_by_all() %>% 
+  summarise(COUNT = n())
+current_3
+
+
+
+#####Looking deeper into the clustering of the 2_2_2
+left <-  kmeans_clusters %>%
+  group_by_all() %>%
+  mutate(id = row_number())
+
+
+right <- data_2012 %>%
+  group_by(orchard,day)  %>%
+  mutate(id = row_number())
+orchard_clusters <- bind_cols(left, right)
+
+#Function to calulate the diff percentages of clusters
+bloomarise <- function(x){
+  x %>%
+      summarise(fung_pre = round(mean(eiqB11F.pre), 2),
+            insect_pre = round(mean(eiqB11I.pre), 2),
+            fung_blm = round(mean(eiqB11F.blm), 2),
+            insect_blm = round(mean(eiqB11I.blm), 2),
+            fung_pos = round(mean(eiqB11F.pos), 2),
+            insect_pos = round(mean(eiqB11I.pos), 2))
+}
+
+
+bloom_2_2_2 <- orchard_clusters %>%
+  group_by(cluster_2_pre, cluster_2_blm, cluster_2_pos) %>%
+  bloomarise
+bloom_2_2_2
+
+bloom_4_2_2 <- orchard_clusters %>%
+  group_by(cluster_4_pre, cluster_2_blm, cluster_2_pos) %>%
+  bloomarise
+bloom_4_2_2
+
+bloom_3_3_3 <- orchard_clusters %>%
+  group_by(cluster_3_pre, cluster_3_blm, cluster_3_pos) %>%
+  bloomarise
+bloom_3_3_3
+
+
+
+
+data_clusters <- tibble(kmeans_clusters, data_2012)
+data_clusters %>%
+  ggplot() +
+  geom_point(aes(x = data_2012$orchard, y = data_2012$eiqB11I.pre,colour = factor(kmeans_clusters$cluster_4_pre))) + 
+  geom_point(aes(x = data_2012$orchard, y = data_2012$eiqB11F.pre,colour = factor(kmeans_clusters$cluster_4_pre))) +
+  theme_bw()
+
+k_clusters <- tibble(by_day, kmeans = data_clusters %>% filter(row_number() %% 2 == 1))
+pre <- k_clusters %>%
+  ggplot() + 
+  geom_point(aes(by_day$day_1$bloom.index, y = by_day$day_2$bloom.index, colour = factor(kmeans$kmeans_clusters$cluster_4_pre))) +
+  labs(title = "Pre-Bloom Decisions", x = "Day 1 Bloom", y = "Day 2 Bloom" , colour='Decision Arm') + 
+  theme_bw()
+pre
+
+blm <- k_clusters %>%
+  ggplot() + 
+  geom_point(aes(by_day$day_1$bloom.index, y = by_day$day_2$bloom.index, colour = factor(kmeans$kmeans_clusters$cluster_2_blm))) +
+  labs(title = "During-Bloom Decisions", x = "Day 1 Bloom", y = "Day 2 Bloom" , colour='Decision Arm') + 
+  theme_bw()
+blm
+
+pos <- k_clusters %>%
+  ggplot() + 
+  geom_point(aes(by_day$day_1$bloom.index, y = by_day$day_2$bloom.index, colour = factor(kmeans$kmeans_clusters$cluster_2_pos))) +
+  labs(title = "Post-Bloom Decisions", x = "Day 1 Bloom", y = "Day 2 Bloom" , colour='Decision Arm') + 
+  theme_bw()
+pos
+```
+
+Looking at correlations of the bee variables
+```{r}
+a <- data.frame(matrix(0, nrow = 0, ncol = 0))
+
+for(i in 1:7){
+  for(j in 1:7){
+  a[i,j] <- round(cor(data_2012[5+i], data_2012[5 + j]), 2)
+  }
+}
+a
+for(i in 1:7){
+ names(a)[i] <- colnames(data_2012[5 +i])
+}
+
+```
+### Objective 1b/c/1d further models and analysis
+After speaking with botanist, no predefined appraoch will be taken.
+All the models will be created using a data driven approach, so going to look at some different clustering methods fitted using the 19 orchards as the data and then compare the different models and clustering methods.
+From the Kmeans analysis above, the different seed returning differing clusterings is not ideal, so some different approaches will be looked at. It is also clear that more factors need to be taken into account in the clustering process rather than just the insecticide and pesticide levels.
+
+#### Version 2
+
+Taking the above method a little further to look at different distance metric and add in X2000nat as another variable, this is the clustering options that were reporting for the naive kmeans method. And is the EDA clustering which is reported in the final analysis report. All the commented out clustering code was written to try and determine future methodology but ultimately was not used. It has been kept in as it shows the thought process behind looking and testing other methods but ultimately didn't work in a good way.
+
+```{r}
+cluster_2_data <- data_2012 %>%
+  select(ends_with(".pre"),ends_with(".blm"), ends_with(".pos"), X2000nat)
+#Shows no difference here although from previous work ward method was best
+# matrix of methods to compare
+m <- c( "average", "single", "complete", "ward")
+names(m) <- c( "average", "single", "complete", "ward")
+distances <- c("euclidean", "maximum", "manhattan", "canberra", 
+               "binary", "minkowski")
+names(distances) <- c("euclidean", "maximum", "manhattan", 
+                      "canberra", "binary", "minkowski")
+clust_comps <- matrix(nrow = length(distances), ncol = length(m), 
+                      dimnames = list(distances,m))
+# function to compute coefficient
+ac <- function(distance, linkage) {
+  dista <- dist(cluster_2_data , method = distance)
+  #Agglomerative Nesting form of Hierarchical Clustering
+  agnes(dista, method = linkage)$ac
+}
+for(i in 1:length(distances)) {
+  for(j in 1:length(m)) {
+    clust_comps[i,j] <- ac(distances[i], m[j])
+  }
+}
+
+
+#Clusters of whole data combined - 7
+fviz_nbclust(NbClust(cluster_2_data, distance="euclidean", 
+                                min.nc=2, max.nc=4, method="ward.D2", index="all"))
+#pre ~ max of 4 clusters at each time point in method, but  in general if you allow
+#More as this argument then more returned a better  optimal cluster number
+fviz_nbclust(NbClust(cluster_2_data %>% select(ends_with(".pre"), X2000nat), distance="euclidean", 
+                                min.nc=2, max.nc=4, method="ward.D2", index="all"))
+#during
+fviz_nbclust(NbClust(cluster_2_data %>% select(ends_with(".blm"), X2000nat), distance="euclidean", 
+                                min.nc=2, max.nc=4, method="ward.D2", index="all"))
+#post
+fviz_nbclust(NbClust(cluster_2_data %>% select(ends_with(".pos"), X2000nat), distance="euclidean", 
+                                min.nc=2, max.nc=4, method="ward.D2", index="all"))
+```
+
+
+Step 1: shows for all the data and pre bloom stage = 3 clusters is best out of our cluster range considered. This analysis was useful for determining the end method but ultimately was not really used, so has been commented out. All the clustering code which was of benefit and used can be seen in the clustering .rmd.
+```{r}
+#Applying agglomerative clustering with 3 clusters:
+#clustered <- agnes(dist(cluster_2_data, method = "euclidian"), 
+                  # diss=TRUE, method = "ward")
+# add cluster labels to the training data
+#cluster_2_data$cluster <- cutree(clustered, k=3)
+# cl2_bloom <- vector(length = 3)
+# #so doesn't work with subclusters 2 and 3
+# for(i in 1:3){
+#   cl2_bloom[i] <- fviz_nbclust(NbClust(cluster_2_data %>% filter(cluster == i) %>% select(ends_with(".blm"),
+#                               X2000nat), distance="euclidian", min.nc=2, max.nc=4, method="ward.D2", index="all"))
+# }
+
+
+# fviz_nbclust(NbClust(cluster_2_data %>% filter(cluster == 2) %>% select(ends_with(".blm"), X2000nat), distance="euclidean", 
+#                                 min.nc=2, max.nc=4, method="ward.D2", index="all"))
+# 
+# 
+# hclust(cluster_2_data)
+```
+
+Now from though process, only the variables that should be included in the clustering should be the pesticides: insecticide/pesticide/thinner e.t.c
+
+```{r}
+# cluster_2_data <- data_2012 %>%
+#   select(ends_with(".pre"),ends_with(".blm"), ends_with(".pos")) %>%
+#   unique()
+# 
+# 
+# #Clusters of whole data combined - 7
+# fviz_nbclust(NbClust(cluster_2_data, distance="euclidean", 
+#                                 min.nc=2, max.nc=4, method="ward.D2", index="all"))
+# #pre ~ max of 4 clusters at each time point in method, but  in general if you allow
+# #More as this argument then more returned a better  optimal cluster number
+# fviz_nbclust(NbClust(cluster_2_data %>% select(ends_with(".pre")), distance="euclidean", 
+#                                 min.nc=2, max.nc=4, method="ward.D2", index="all"))
+# #during
+# fviz_nbclust(NbClust(cluster_2_data %>% select(ends_with(".blm")), distance="euclidean", 
+#                                 min.nc=2, max.nc=4, method="ward.D2", index="all"))
+# #post
+# fviz_nbclust(NbClust(cluster_2_data %>% select(ends_with(".pos")), distance="euclidean", 
+#                                 min.nc=2, max.nc=4, method="ward.D2", index="all"))
+# 
+# 
+# #######Subsetting the data down by cluster results in the matrices being singular and therefore the code doesn't
+# #run as expected, this could be looked at in detail however, since there are so few data points
+# #it is not ideal to have a really sparse cluster set in reality
+# 
+# #Testing
+# fviz_nbclust(NbClust(cluster_2_data %>%  filter(cluster == 1) %>% select(ends_with(".pos")), distance="euclidean", 
+#                                 min.nc=2, max.nc=4, method="ward.D2", index="all"))
+# 
+# cluster_2_data <- cluster_2_data %>%  mutate_all(function(x) ifelse(x == 0, runif(1, 0.00000000001,0.0000001), x))
+# 
+# fviz_nbclust(NbClust(cluster_2_data %>%  filter(cluster == 2) %>% select(ends_with(".pos")), distance="euclidean", 
+#                                 min.nc=2, max.nc=4, method="ward.D2", index="all"))
+# 
+# test <- agnes(dist(cluster_2_data %>%  filter(cluster == 2) %>% select(ends_with(".blm")), method = "euclidian"), 
+#                    diss=TRUE, method = "ward")
+# 
+# cluster_2_data$cluster <- cutree(bleh, k=2)
+# 
+# fviz_nbclust(NbClust(cluster_2_data %>%  filter(cluster == 2) %>% select(ends_with(".blm")), distance="euclidean", 
+#                                 min.nc=1, max.nc=3, method="ward.D2", index="all"))
+# 
+# 
+# a <- matrix(c(0,1,1,0), nrow=2)
+# 
+# #Checks
+# fviz_nbclust(cluster_2_data %>% filter(cluster == 2)%>% select(ends_with(".blm")),pam , method = "silhouette")
+# 
+# 
+# clustered <- agnes(dist(cluster_2_data, method = "euclidian"), 
+#                    diss=TRUE, method = "ward")
+# # add cluster labels to the training data
+# cluster_2_data$cluster <- cutree(clustered, k=3)
+# cl2_bloom <- vector(length = 3)
+# #so doesn't work with subclusters 2 and 3
+# for(i in 1:3){
+#   cl2_bloom[i] <- fviz_nbclust(NbClust(cluster_2_data %>% filter(cluster == i)%>% select(ends_with(".blm")), distance="euclidean", 
+#                                 min.nc=1, max.nc= min(table(cluster_2_data$cluster))
+#                                 , method="ward.D2", index="all"))
+# }
+# 
+# 
+# fviz_nbclust(NbClust(cluster_2_data , distance="euclidean", 
+#                                 min.nc=2, max.nc=min(table(cluster_2_data$cluster))
+#                      , method="ward.D2", index="all"))
+# 
+# 
+# hclust(cluster_2_data)
+```
+There is just not enough data to use this clustering technique at each stage of the clustering process in a good format, so will need to ensure that sparsity is taken into consideration as a main downside to clustering methods and these considerations will be properly exaimined in the clustering.rmd. The code here has been been kept as it was important for the future as it demonstrated why some methods wouldn't work adequately. But commented out as not "useful".
+
+### Variable justification
+Code to decide upon the bee variables to take into consideration for the final response variables.
+```{r}
+bee_correlations <- data.frame(matrix(0, nrow = 0, ncol = 0))
+
+for(i in 1:7){
+  for(j in 1:7){
+  bee_correlations[i,j] <- round(cor(data_2012[5+i], data_2012[5 + j]), 2)
+  }
+}
+a
+for(i in 1:7){
+ names(bee_correlations)[i] <- colnames(data_2012[5 +i])
+}
+bee_correlations
+```
+
